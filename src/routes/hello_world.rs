@@ -1,5 +1,6 @@
 use super::Route;
 use axum::routing::{get, MethodRouter};
+use std::convert::Infallible;
 
 const PATH: &str = "/helloworld";
 
@@ -9,7 +10,10 @@ impl Route for HelloWorld {
     fn path() -> &'static str {
         PATH
     }
-    fn method_router() -> MethodRouter {
+    fn method_router<S>() -> MethodRouter<S, Infallible>
+    where
+        S: Clone + Send + Sync + 'static,
+    {
         get(hello_world)
     }
 }

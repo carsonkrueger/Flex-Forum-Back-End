@@ -1,18 +1,20 @@
-use crate::{hello_world, routes::hello_world::HelloWorld};
-use axum::{
-    body::Body,
-    routing::{get, MethodRouter},
-    Router,
-};
+use axum::{routing::MethodRouter, Router};
 use sqlx::{Database, Pool};
+use std::convert::Infallible;
+
+use self::hello_world::HelloWorld;
 
 mod hello_world;
 
 pub trait Route {
     fn path() -> &'static str;
-    fn method_router() -> MethodRouter;
+    fn method_router<S>() -> MethodRouter<S, Infallible>
+    where
+        S: Clone + Send + Sync + 'static;
 }
 
-pub fn create_routes<T: Database>(pool: Pool<T>) -> Router<Body> {
-    Router::new().route("/", get(hello_world)).with_state(pool)
+pub fn create_routes<T: Database>(pool: Pool<T>) -> Router {
+    Router::new()
+        .route(HelloWorld::path(), HelloWorld::method_router())
+        .with_state(pool)
 }
