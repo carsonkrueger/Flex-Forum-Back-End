@@ -1,11 +1,11 @@
 use axum::{
-    routing::{get, MethodRouter},
+    routing::{get, post, MethodRouter},
     Router,
 };
 use sqlx::PgPool;
 use std::convert::Infallible;
 
-use self::{hello_world::hello_world, user::mirror_user};
+use self::{hello_world::hello_world, user::create_user};
 
 mod hello_world;
 mod user;
@@ -21,6 +21,6 @@ where
 pub fn create_routes(pool: PgPool) -> Router {
     Router::new()
         .route("/helloworld", get(hello_world))
-        .route("/user", get(mirror_user))
+        .route("/users", post(create_user))
         .with_state(pool)
 }

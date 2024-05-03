@@ -402,6 +402,8 @@ dependencies = [
  "argon2",
  "axum",
  "dotenvy",
+ "once_cell",
+ "regex",
  "serde",
  "sqlx",
  "tokio",
