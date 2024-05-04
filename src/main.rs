@@ -3,17 +3,19 @@ use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, time::Duration};
 
 mod lib;
-mod routes;
+mod models;
+mod repositories;
+mod view_models;
 
 #[tokio::main]
 async fn main() {
-    let pool = create_pool().await;
+    // let pool = create_pool().await;
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
         .expect("Could not run migrations");
 
-    let router = routes::create_routes(pool);
+    let router = repositories::create_routes(pool);
 
     let addr = "0.0.0.0:3000";
     let listener = tokio::net::TcpListener::bind(addr)
@@ -31,12 +33,6 @@ async fn create_pool() -> Pool<Postgres> {
     #[allow(unused_assignments)]
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL not found in .env");
 
-    // if running debug build, use localhost connection to database
-    // #[cfg(debug_assertions)]
-    // {
-    //     db_url = env::var("DEBUG_DATABASE_URL").expect("DEBUG_DATABASE_URL not found in .env");
-    // }
-
     let pool = PgPoolOptions::new()
         .max_connections(16)
         .acquire_timeout(Duration::from_secs(3))
@@ -44,4 +40,12 @@ async fn create_pool() -> Pool<Postgres> {
         .await
         .expect("Could not connect to the database");
     pool
+}
+
+async fn create_diesel_pool() {
+    dotenv().expect(".env file not found");
+    #[allow(unused_assignments)]
+    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL not found in .env");
+
+    // let connection =
 }
