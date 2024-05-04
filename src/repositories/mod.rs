@@ -1,26 +1,20 @@
-use axum::{
-    routing::{get, post, MethodRouter},
-    Router,
-};
+use self::{hello_world::HelloWorldRoute, user::UserRoute};
+use axum::Router;
 use sqlx::PgPool;
-use std::convert::Infallible;
-
-use self::{hello_world::hello_world, user::create_user};
 
 mod hello_world;
 mod user;
 
-pub trait Route<S>
-where
-    S: Clone + Sync + Send,
-{
-    fn path() -> &'static str;
-    fn method_router() -> MethodRouter<S, Infallible>;
+pub trait NestedRoute<S> {
+    fn path<'a>() -> &'a str;
+    fn router() -> Router<PgPool>;
 }
 
 pub fn create_routes(pool: PgPool) -> Router {
     Router::new()
-        .route("/helloworld", get(hello_world))
-        .route("/users", post(create_user))
+        .nest(HelloWorldRoute::path(), HelloWorldRoute::router())
+        .nest(UserRoute::path(), UserRoute::router())
+        // .route("/users", post(create_user))
+        // .route("/users/:id", post(get_user))
         .with_state(pool)
 }

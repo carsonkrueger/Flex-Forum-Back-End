@@ -9,7 +9,7 @@ mod view_models;
 
 #[tokio::main]
 async fn main() {
-    // let pool = create_pool().await;
+    let pool = create_pool().await;
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
