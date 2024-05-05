@@ -14,10 +14,22 @@ pub fn hash(password: &[u8]) -> Result<(String, SaltString), StatusCode> {
     }
 }
 
-pub fn verify(password: &[u8], hash: &str) -> Result<(), argon2::password_hash::Error> {
-    let parsed_hash = PasswordHash::new(hash)?;
-    // let salt = Salt(hash);
-    // parsed_hash.salt = Some(salt);
-    Argon2::default().verify_password(password, &parsed_hash)?;
-    Ok(())
+pub fn hash_with<'a>(
+    password: &[u8],
+    salt: &'a SaltString,
+) -> Result<PasswordHash<'a>, argon2::password_hash::Error> {
+    let hash = Argon2::default().hash_password(password, salt)?;
+    Ok(hash)
+}
+
+pub fn verify(
+    password: &[u8],
+    salt_str: &str,
+    hash_str: &str,
+) -> Result<bool, argon2::password_hash::Error> {
+    let salt = SaltString::from_b64(salt_str)?;
+    let hash = hash_with(password, &salt)?;
+    return Ok(hash_str == hash.to_string());
+    // Argon2::default().verify_password(password, &hash)?;
+    // Ok(true)
 }

@@ -34,9 +34,11 @@ pub async fn create_user(
         return Ok((StatusCode::BAD_REQUEST, e.to_string()));
     }
 
-    let email_exists = email_exists(&body.email, &pool).await?;
-    if email_exists {
-        return Ok((StatusCode::BAD_REQUEST, "Email already taken".to_string()));
+    let exists_result = email_exists(&body.email, &pool).await;
+    match exists_result {
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Ok(true) => return Err(StatusCode::CONFLICT),
+        Ok(false) => (),
     }
 
     let (hash, salt) = hash_services::hash(body.password.as_bytes())?;
@@ -104,8 +106,19 @@ pub async fn login(State(pool): State<PgPool>, Json(body): Json<LoginModel>) -> 
     .bind(body.email)
     .fetch_optional(&pool)
     .await;
-    println!("{:?}", query_result);
-    StatusCode::ACCEPTED
-    // todo!()
-    // verify(body, hash)
+
+    let (verify_result, id) = match query_result {
+        Ok(Some(ref row)) => (
+            verify(body.password.as_bytes(), &row.2, &row.1),
+            row.0.to_string(),
+        ),
+        Ok(None) => return Err(StatusCode::UNAUTHORIZED),
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+
+    match verify_result {
+        Ok(true) => Ok((StatusCode::ACCEPTED, id)),
+        Ok(false) => Err(StatusCode::UNAUTHORIZED),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }

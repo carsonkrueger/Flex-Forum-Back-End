@@ -1,9 +1,8 @@
 use crate::lib::hash_scheme::HashScheme;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::{prelude::FromRow, types::time::PrimitiveDateTime};
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
-// use sqlx::types::Uuid;
 
 #[derive(Deserialize, Serialize, FromRow)]
 pub struct UserModel {
