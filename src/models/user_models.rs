@@ -1,12 +1,13 @@
 use crate::lib::hash_scheme::HashScheme;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::types::time::PrimitiveDateTime;
-use sqlx::FromRow;
+use sqlx::{prelude::FromRow, types::time::PrimitiveDateTime};
+use uuid::Uuid;
+// use sqlx::types::Uuid;
 
 #[derive(Deserialize, Serialize, FromRow)]
 pub struct UserModel {
-    pub id: String,
+    pub id: Uuid,
     pub first_name: String,
     pub last_name: String,
     pub email: String,
@@ -14,6 +15,6 @@ pub struct UserModel {
     pub password_hash: String,
     pub salt: String,
     pub hash_scheme: HashScheme,
-    pub created_at: DateTime<Utc>,
-    pub deactivated_at: Option<DateTime<Utc>>,
+    pub created_at: chrono::NaiveDate,
+    pub deactivated_at: Option<NaiveDateTime>,
 }

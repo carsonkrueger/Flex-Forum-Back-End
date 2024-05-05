@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sqlx::{prelude::FromRow, types::Uuid};
 use validator::Validate;
 
 use crate::{lib::validation::RE_NAME, models::user_models::UserModel};
@@ -16,14 +17,15 @@ pub struct CreateUserViewModel {
         length(min = 1, max = 255, message = "Invalid email length")
     )]
     pub email: String,
-    #[validate(length(min = 1, max = 32, message = "Invalid username"))]
+    #[validate(length(min = 1, max = 32, message = "Invalid username length"))]
     pub username: String,
-    #[validate(length(min = 1, max = 64, message = "Invalid password"))]
+    #[validate(length(min = 1, max = 64, message = "Invalid password length"))]
     pub password: String,
 }
 
-#[derive(Deserialize, Serialize, Validate)]
+#[derive(Deserialize, Serialize, Validate, FromRow)]
 pub struct ReadUserViewModel {
+    pub id: Uuid,
     #[validate(length(min = 1, max = 32, message = "Invalid first name length"))]
     #[validate(regex(path = "*RE_NAME"))]
     pub first_name: String,
@@ -42,6 +44,7 @@ pub struct ReadUserViewModel {
 impl From<UserModel> for ReadUserViewModel {
     fn from(value: UserModel) -> Self {
         Self {
+            id: value.id,
             email: value.email,
             first_name: value.first_name,
             last_name: value.last_name,

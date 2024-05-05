@@ -5,6 +5,7 @@ use std::{env, time::Duration};
 mod lib;
 mod models;
 mod repositories;
+mod services;
 mod view_models;
 
 #[tokio::main]
@@ -34,18 +35,10 @@ async fn create_pool() -> Pool<Postgres> {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL not found in .env");
 
     let pool = PgPoolOptions::new()
-        .max_connections(16)
+        .max_connections(3)
         .acquire_timeout(Duration::from_secs(3))
         .connect(&db_url)
         .await
         .expect("Could not connect to the database");
     pool
-}
-
-async fn create_diesel_pool() {
-    dotenv().expect(".env file not found");
-    #[allow(unused_assignments)]
-    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL not found in .env");
-
-    // let connection =
 }
