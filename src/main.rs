@@ -3,8 +3,9 @@ use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, time::Duration};
 
 mod lib;
+mod middleware;
 mod models;
-mod repositories;
+mod routes;
 mod services;
 mod view_models;
 
@@ -16,7 +17,7 @@ async fn main() {
         .await
         .expect("Could not run migrations");
 
-    let router = repositories::create_routes(pool);
+    let router = routes::create_routes(pool);
 
     let addr = "0.0.0.0:3000";
     let listener = tokio::net::TcpListener::bind(addr)

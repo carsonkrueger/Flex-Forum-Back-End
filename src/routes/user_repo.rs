@@ -1,6 +1,6 @@
 use super::NestedRoute;
 use crate::lib::hash_scheme::HashScheme;
-use crate::services::hash_services::{self, hash, verify};
+use crate::services::hash_services::{self, verify};
 use crate::services::user_services::email_exists;
 use crate::view_models::login_view_models::LoginModel;
 use crate::view_models::user_view_models::{CreateUserViewModel, ReadUserViewModel};

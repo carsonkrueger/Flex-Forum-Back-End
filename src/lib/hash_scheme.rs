@@ -14,16 +14,6 @@ impl PgHasArrayType for HashScheme {
     }
 }
 
-// impl TryFrom<&str> for HashScheme {
-//     type Error = ();
-//     fn try_from(value: &str) -> Result<Self, Self::Error> {
-//         match value.to_lowercase().as_str() {
-//             "argon2" => Ok(Self::Argon2),
-//             _ => Err(()),
-//         }
-//     }
-// }
-
 impl From<&HashScheme> for String {
     fn from(value: &HashScheme) -> Self {
         match value {
