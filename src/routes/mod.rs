@@ -1,4 +1,5 @@
 use self::{hello_world::HelloWorldRoute, user_repo::UserRoute};
+use crate::middleware::auth::{ctx_resolver, validate_auth};
 use axum::Router;
 use sqlx::PgPool;
 
@@ -15,4 +16,5 @@ pub fn create_routes(pool: PgPool) -> Router {
         .nest(HelloWorldRoute::path(), HelloWorldRoute::router())
         .nest(UserRoute::path(), UserRoute::router())
         .with_state(pool)
+        .layer(ctx_resolver)
 }

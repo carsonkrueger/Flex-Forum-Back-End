@@ -1,13 +1,17 @@
 use uuid::Uuid;
 
+use super::jwt::JWT;
+
 #[derive(Clone)]
 pub struct Ctx {
-    user_id: Uuid,
-    // username: String,
+    jwt: JWT,
 }
 
 impl Ctx {
-    pub fn user_id(&self) -> &Uuid {
-        &self.user_id
+    pub fn new(jwt: JWT) -> Self {
+        Self { jwt }
+    }
+    pub fn jwt(&self) -> &JWT {
+        &self.jwt
     }
 }

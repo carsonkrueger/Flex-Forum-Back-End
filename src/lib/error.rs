@@ -5,6 +5,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Clone, Serialize)]
 pub enum Error {
+    MissingAuthCookie,
     LoginFail,
     InvalidAuth,
 }
@@ -22,6 +23,7 @@ impl From<&Error> for StatusCode {
         use Error::*;
         match value {
             InvalidAuth => StatusCode::FORBIDDEN,
+            MissingAuthCookie => StatusCode::FORBIDDEN,
             LoginFail => StatusCode::UNAUTHORIZED,
         }
     }

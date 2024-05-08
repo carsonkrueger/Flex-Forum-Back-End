@@ -6,26 +6,45 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use tower_cookies::Cookies;
+use tower_cookies::{Cookie, Cookies};
 
-use crate::lib::{ctx::Ctx, error::Error, error::Result};
+use crate::lib::{
+    ctx::Ctx,
+    error::{Error, Result},
+    jwt::JWT,
+};
 
 const AUTH_TOKEN: &'static str = "auth_token";
 
-/// Enforces auth Ctx
-pub async fn require_auth(ctx: Result<Ctx>, req: Request<Body>, next: Next) -> Result<Response> {
-    ctx?;
+/// Enforces auth Ctx within extensions
+pub async fn validate_auth(ctx: Result<Ctx>, req: Request<Body>, next: Next) -> Result<Response> {
+    ctx?.jwt().validate_token()?;
     Ok(next.run(req).await)
 }
 
-/// creates Ctx from cookies
+/// Creates Ctx from cookies and inserts into Extensions then calls next layer.
+/// Returns Err if missing or invalid JWT.
 pub async fn ctx_resolver(
     cookies: Cookies,
     mut req: Request<Body>,
     next: Next,
 ) -> Result<Response> {
-    // let token = cookies.get(AUTH_TOKEN)
-    todo!()
+    let token_str = cookies.get(AUTH_TOKEN).map(|c| c.value().to_string());
+
+    let result_ctx = match token_str
+        .ok_or(Error::MissingAuthCookie)
+        .and_then(JWT::parse_token)
+    {
+        Ok(jwt) => Ok(Ctx::new(jwt)),
+        Err(e) => Err(e),
+    };
+
+    if result_ctx.is_err() && !matches!(result_ctx, Err(Error::MissingAuthCookie)) {
+        cookies.remove(Cookie::from(AUTH_TOKEN));
+    }
+
+    req.extensions_mut().insert(result_ctx);
+    Ok(next.run(req).await)
 }
 
 #[async_trait]
