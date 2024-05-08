@@ -16,7 +16,7 @@ use crate::lib::{
 
 const AUTH_TOKEN: &'static str = "auth_token";
 
-/// Enforces auth Ctx within extensions
+/// Enforces auth Ctx within extensions and validates the jwt
 pub async fn validate_auth(ctx: Result<Ctx>, req: Request<Body>, next: Next) -> Result<Response> {
     ctx?.jwt().validate_token()?;
     Ok(next.run(req).await)

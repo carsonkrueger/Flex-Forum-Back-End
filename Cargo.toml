@@ -19,3 +19,5 @@ validator = { version = "0.18.1", features = ["derive"] }
 uuid = { version = "1.8.0", features = ["serde"] }
 async-trait = "0.1.80"
 tower-cookies = "0.10.0"
+sqlb = "0.4.0"
+serde_with = "3.8.1"
