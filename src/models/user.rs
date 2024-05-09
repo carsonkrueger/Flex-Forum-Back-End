@@ -2,14 +2,11 @@ use super::{
     base::{self, DbBmc},
     Result,
 };
-use crate::libs::{
-    hash_scheme::HashScheme,
-    validation::{RE_NAME, RE_USERNAME},
-};
+use crate::libs::hash_scheme::HashScheme;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlb::Fields;
-use sqlx::{prelude::FromRow, PgPool};
+use sqlb::{Fields, HasFields};
+use sqlx::{postgres::PgRow, prelude::FromRow, PgPool};
 use validator::Validate;
 
 #[derive(Deserialize, Serialize, FromRow)]
@@ -53,18 +50,42 @@ pub struct ReadUserModel {
     pub username: String,
 }
 
-pub async fn email_exists(email: &str, pool: &PgPool) -> Result<bool> {
-    let result = sqlx::query("SELECT FROM user_management.users WHERE email = $1 LIMIT 1;")
+/// Returns Some() with the email or username that is taken. None if not taken.
+pub async fn username_or_email_exists(
+    username: &str,
+    email: &str,
+    pool: &PgPool,
+) -> Result<Option<String>> {
+    let result = sqlx::query_scalar::<_, (String, String)>("SELECT (email, username) FROM user_management.users WHERE email = $1 OR username = $2 LIMIT 1;")
         .bind(email)
-        .fetch_optional(pool)
-        .await?;
-    Ok(result.is_some())
-}
-
-pub async fn username_exists(username: &str, pool: &PgPool) -> Result<bool> {
-    let result = sqlx::query("SELECT FROM user_management.users WHERE username = $1 LIMIT 1;")
         .bind(username)
         .fetch_optional(pool)
         .await?;
-    Ok(result.is_some())
+
+    if let Some((q_email, q_name)) = result {
+        if q_email == email {
+            return Ok(Some(email.to_string()));
+        } else if q_name == username {
+            return Ok(Some(username.to_string()));
+        }
+    }
+
+    Ok(None)
+}
+
+async fn get_one_by_username<MC, E>(username: &str, db: &PgPool) -> Result<Option<E>>
+where
+    MC: DbBmc,
+    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    E: HasFields,
+{
+    let entity = sqlb::select()
+        .table(MC::TABLE)
+        .columns(E::field_names())
+        .and_where_eq("username", username)
+        .limit(1)
+        .fetch_optional(db)
+        .await?;
+
+    Ok(entity)
 }

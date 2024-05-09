@@ -1,11 +1,11 @@
+use super::Error;
 use super::NestedRoute;
-use super::{Error, Result};
-use crate::libs::hash_scheme::HashScheme;
+use crate::libs::validation::validate;
 use crate::libs::validation::{RE_NAME, RE_USERNAME};
 use crate::models;
-use crate::models::user::{email_exists, username_exists, CreateUserModel, ReadUserModel};
+use crate::models::base;
+use crate::models::user::{username_or_email_exists, CreateUserModel, ReadUserModel};
 use crate::services::hash_services::{self, verify};
-use crate::view_models::login_view_models::LoginModel;
 use axum::extract::Path;
 use axum::routing::{get, post};
 use axum::Router;
@@ -21,14 +21,14 @@ impl NestedRoute<PgPool> for UserRoute {
     const PATH: &'static str = "/users";
     fn router() -> Router<PgPool> {
         Router::new()
-            .route("/", post(create_user))
+            .route("/", post(sign_up))
             .route("/:id", get(get_user))
-            .route("/login", post(login))
+            .route("/login", post(log_in))
     }
 }
 
 #[derive(Deserialize, Validate, Fields)]
-pub struct CreateUserViewModel {
+pub struct SignUpModel {
     #[validate(length(min = 1, max = 32, message = "Invalid first name length"))]
     #[validate(regex(path = "*RE_NAME"))]
     pub first_name: String,
@@ -47,25 +47,20 @@ pub struct CreateUserViewModel {
     pub password: String,
 }
 
-pub async fn create_user(
+pub async fn sign_up(
     State(pool): State<PgPool>,
-    Json(body): Json<CreateUserViewModel>,
+    Json(body): Json<SignUpModel>,
 ) -> impl IntoResponse {
     if let Err(e) = body.validate() {
         return Err(Error::Validation(e.to_string()));
     }
 
-    let email_exists = email_exists(&body.email, &pool).await?;
-    if email_exists {
-        return Err(Error::EmailTaken);
+    let taken_str = username_or_email_exists(&body.username, &body.email, &pool).await?;
+    if let Some(taken) = taken_str {
+        return Err(Error::AlreadyTaken(taken));
     }
 
-    let username_exists = username_exists(&body.username, &pool).await?;
-    if username_exists {
-        return Err(Error::UsernameTaken);
-    }
-
-    let (pwd_hash, pwd_salt) = hash_services::hash(body.password.as_bytes())?;
+    let (pwd_hash, pwd_salt, hash_scheme) = hash_services::hash(body.password.as_bytes())?;
 
     let create_model = CreateUserModel {
         username: body.username,
@@ -74,7 +69,7 @@ pub async fn create_user(
         last_name: body.last_name,
         pwd_hash,
         pwd_salt: pwd_salt.to_string(),
-        hash_scheme: HashScheme::Argon2,
+        hash_scheme,
     };
 
     let id = models::user::create(&pool, create_model).await?;
@@ -103,13 +98,25 @@ pub async fn get_user(Path(id): Path<i64>, State(pool): State<PgPool>) -> impl I
     }
 }
 
-pub async fn login(State(pool): State<PgPool>, Json(body): Json<LoginModel>) -> impl IntoResponse {
-    let query_result = sqlx::query_scalar::<_, (i64, String, String)>(
-        "SELECT (id, pwd_hash, pwd_salt) FROM user_management.users WHERE email = $1;",
-    )
-    .bind(body.email)
-    .fetch_optional(&pool)
-    .await;
+#[derive(Deserialize, Validate)]
+pub struct LoginModel {
+    #[validate(length(min = 1, max = 32, message = "Invalid username length"))]
+    #[validate(regex(path = "*RE_USERNAME"))]
+    pub username: String,
+    #[validate(length(min = 1, max = 32, message = "Invalid password length"))]
+    pub password: String,
+}
+
+/// logs user in with username & password
+pub async fn log_in(State(pool): State<PgPool>, Json(body): Json<LoginModel>) -> impl IntoResponse {
+    validate(body)?;
+
+    // let query_result = sqlx::query_scalar::<_, (i64, String, String)>(
+    //     "SELECT (id, pwd_hash, pwd_salt) FROM user_management.users WHERE email = $1;",
+    // )
+    // .bind(body.username)
+    // .fetch_optional(&pool)
+    // .await;
 
     let (verify_result, id) = match query_result {
         Ok(Some(ref row)) => (

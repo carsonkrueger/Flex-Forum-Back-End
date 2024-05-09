@@ -3,7 +3,7 @@ use crate::{
     middleware::auth::{ctx_resolver, validate_auth},
     models,
 };
-use axum::{http::StatusCode, middleware::from_fn, response::IntoResponse, Router};
+use axum::{body::Body, http::StatusCode, middleware::from_fn, response::IntoResponse, Router};
 use serde::Serialize;
 use sqlx::PgPool;
 
@@ -18,8 +18,7 @@ pub enum Error {
     LoginFail,
     InvalidAuth,
     Validation(String),
-    EmailTaken,
-    UsernameTaken,
+    AlreadyTaken(String),
     // Used to hide error from users
     Unknown,
 }
@@ -39,9 +38,10 @@ pub fn create_routes(pool: PgPool) -> Router {
 }
 
 impl IntoResponse for Error {
-    fn into_response(self) -> axum::response::Response {
+    fn into_response(self) -> axum::response::Response<Body> {
         let mut response = StatusCode::from(&self).into_response();
-        response.extensions_mut().insert(self); // insert error enum into response
+        let body = Body::new(self.to_string());
+        let _ = std::mem::replace(response.body_mut(), body);
         response
     }
 }
@@ -53,8 +53,7 @@ impl From<&Error> for StatusCode {
             InvalidAuth => StatusCode::FORBIDDEN,
             MissingAuthCookie => StatusCode::FORBIDDEN,
             LoginFail => StatusCode::UNAUTHORIZED,
-            EmailTaken => StatusCode::CONFLICT,
-            UsernameTaken => StatusCode::CONFLICT,
+            AlreadyTaken(..) => StatusCode::CONFLICT,
             Validation(..) => StatusCode::BAD_REQUEST,
             Unknown => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -65,6 +64,20 @@ impl From<crate::models::Error> for Error {
     fn from(value: models::Error) -> Self {
         match value {
             models::Error::Sqlx(_) => Error::Unknown,
+        }
+    }
+}
+
+impl ToString for Error {
+    fn to_string(&self) -> String {
+        use Error::*;
+        match &self {
+            AlreadyTaken(s) => format!("{} already taken", s),
+            InvalidAuth => format!("Invalid auth token"),
+            LoginFail => format!("Login failed"),
+            MissingAuthCookie => format!("Missing auth token"),
+            Validation(s) => s.to_string(),
+            Unknown => format!("Unknown error"),
         }
     }
 }

@@ -3,15 +3,15 @@ use argon2::{
     Argon2,
 };
 
-use crate::routes;
+use crate::{libs::hash_scheme::HashScheme, routes};
 
-pub fn hash(password: &[u8]) -> Result<(String, SaltString), routes::Error> {
+pub fn hash(password: &[u8]) -> Result<(String, SaltString, HashScheme), routes::Error> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let hash = argon2
         .hash_password(password, &salt)
         .or(Err(routes::Error::InvalidAuth))?;
-    Ok((hash.to_string(), salt))
+    Ok((hash.to_string(), salt, HashScheme::Argon2))
 }
 
 pub fn hash_with<'a>(
