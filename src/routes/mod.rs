@@ -1,4 +1,4 @@
-use self::{hello_world::HelloWorldRoute, users::UserRoute};
+use self::{hello_world::HelloWorldRoute, users_route::UserRoute};
 use crate::{
     middleware::auth::{ctx_resolver, validate_auth},
     models,
@@ -8,7 +8,7 @@ use serde::Serialize;
 use sqlx::PgPool;
 
 mod hello_world;
-mod users;
+mod users_route;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -19,6 +19,7 @@ pub enum Error {
     InvalidAuth,
     Validation(String),
     AlreadyTaken(String),
+    HashError,
     // Used to hide error from users
     Unknown,
 }
@@ -55,16 +56,20 @@ impl From<&Error> for StatusCode {
             LoginFail => StatusCode::UNAUTHORIZED,
             AlreadyTaken(..) => StatusCode::CONFLICT,
             Validation(..) => StatusCode::BAD_REQUEST,
-            Unknown => StatusCode::INTERNAL_SERVER_ERROR,
+            HashError | Unknown => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
 
 impl From<crate::models::Error> for Error {
-    fn from(value: models::Error) -> Self {
-        match value {
-            models::Error::Sqlx(_) => Error::Unknown,
-        }
+    fn from(_value: models::Error) -> Self {
+        Error::Unknown
+    }
+}
+
+impl From<argon2::password_hash::Error> for Error {
+    fn from(_value: argon2::password_hash::Error) -> Self {
+        Error::HashError
     }
 }
 
@@ -77,7 +82,7 @@ impl ToString for Error {
             LoginFail => format!("Login failed"),
             MissingAuthCookie => format!("Missing auth token"),
             Validation(s) => s.to_string(),
-            Unknown => format!("Unknown error"),
+            HashError | Unknown => format!("Unknown error"),
         }
     }
 }

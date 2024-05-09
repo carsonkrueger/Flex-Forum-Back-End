@@ -1,5 +1,5 @@
 pub mod base;
-pub mod user;
+pub mod user_model;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

@@ -13,6 +13,9 @@ pub struct JWT {
 }
 
 impl JWT {
+    // pub fn sign(&[&str]) -> String {
+
+    // }
     /// Parses auth_token string into its 3 parts separated by a '.'
     /// (Does not validate the hash)
     pub fn parse_token(token_str: String) -> Result<JWT> {

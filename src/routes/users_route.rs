@@ -1,10 +1,12 @@
-use super::Error;
 use super::NestedRoute;
-use crate::libs::validation::validate;
-use crate::libs::validation::{RE_NAME, RE_USERNAME};
+use super::{Error, Result};
+use crate::libs::jwt::JWT;
+use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
+use crate::middleware::auth::AUTH_TOKEN;
 use crate::models;
-use crate::models::base;
-use crate::models::user::{username_or_email_exists, CreateUserModel, ReadUserModel};
+use crate::models::user_model::{
+    username_or_email_exists, CreateUserModel, ReadUserModel, UserModel,
+};
 use crate::services::hash_services::{self, verify};
 use axum::extract::Path;
 use axum::routing::{get, post};
@@ -12,7 +14,9 @@ use axum::Router;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::Deserialize;
 use sqlb::Fields;
+use sqlx::prelude::FromRow;
 use sqlx::PgPool;
+use tower_cookies::{Cookie, Cookies};
 use validator::Validate;
 
 pub struct UserRoute;
@@ -72,7 +76,7 @@ pub async fn sign_up(
         hash_scheme,
     };
 
-    let id = models::user::create(&pool, create_model).await?;
+    let id = models::user_model::create(&pool, create_model).await?;
 
     Ok((StatusCode::CREATED, Json(id)))
 }
@@ -107,29 +111,39 @@ pub struct LoginModel {
     pub password: String,
 }
 
+#[derive(FromRow, Fields)]
+pub struct HashModel {
+    id: i64,
+    pwd_hash: String,
+    pwd_salt: String,
+}
+
 /// logs user in with username & password
-pub async fn log_in(State(pool): State<PgPool>, Json(body): Json<LoginModel>) -> impl IntoResponse {
-    validate(body)?;
+pub async fn log_in(
+    State(pool): State<PgPool>,
+    // cookies: Cookies,
+    Json(body): Json<LoginModel>,
+) -> Result<Json<i64>> {
+    validate_struct(&body)?;
 
-    // let query_result = sqlx::query_scalar::<_, (i64, String, String)>(
-    //     "SELECT (id, pwd_hash, pwd_salt) FROM user_management.users WHERE email = $1;",
-    // )
-    // .bind(body.username)
-    // .fetch_optional(&pool)
-    // .await;
+    let option_hash =
+        models::user_model::get_one_by_username::<UserModel, HashModel>(&body.username, &pool)
+            .await?;
 
-    let (verify_result, id) = match query_result {
-        Ok(Some(ref row)) => (
-            verify(body.password.as_bytes(), &row.2, &row.1),
-            row.0.to_string(),
-        ),
-        Ok(None) => return Err(StatusCode::UNAUTHORIZED),
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-    };
+    let hash_model = option_hash.ok_or(Error::LoginFail)?;
+    let verified = verify(
+        body.password.as_bytes(),
+        &hash_model.pwd_salt,
+        &hash_model.pwd_hash,
+    )?;
 
-    match verify_result {
-        Ok(true) => Ok((StatusCode::ACCEPTED, id)),
-        Ok(false) => Err(StatusCode::UNAUTHORIZED),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    if !verified {
+        return Err(Error::LoginFail);
     }
+
+    // let jwt = JWT::
+    // let cookie = Cookie::new(AUTH_TOKEN, "");
+    // cookies.add(cookie);
+
+    Ok(Json(hash_model.id))
 }

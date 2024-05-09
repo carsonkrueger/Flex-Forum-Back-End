@@ -11,7 +11,7 @@ use tower_cookies::{Cookie, Cookies};
 use crate::libs::{ctx::Ctx, jwt::JWT};
 use crate::routes::{Error, Result};
 
-const AUTH_TOKEN: &'static str = "auth_token";
+pub const AUTH_TOKEN: &'static str = "auth_token";
 
 /// Enforces auth Ctx within extensions and validates the jwt
 pub async fn validate_auth(ctx: Result<Ctx>, req: Request<Body>, next: Next) -> Result<Response> {

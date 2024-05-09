@@ -7,7 +7,6 @@ mod middleware;
 mod models;
 mod routes;
 mod services;
-mod view_models;
 
 #[tokio::main]
 async fn main() {

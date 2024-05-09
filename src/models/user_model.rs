@@ -73,7 +73,7 @@ pub async fn username_or_email_exists(
     Ok(None)
 }
 
-async fn get_one_by_username<MC, E>(username: &str, db: &PgPool) -> Result<Option<E>>
+pub async fn get_one_by_username<MC, E>(username: &str, db: &PgPool) -> Result<Option<E>>
 where
     MC: DbBmc,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
