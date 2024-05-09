@@ -8,11 +8,8 @@ use axum::{
 };
 use tower_cookies::{Cookie, Cookies};
 
-use crate::lib::{
-    ctx::Ctx,
-    error::{Error, Result},
-    jwt::JWT,
-};
+use crate::libs::{ctx::Ctx, jwt::JWT};
+use crate::routes::{Error, Result};
 
 const AUTH_TOKEN: &'static str = "auth_token";
 

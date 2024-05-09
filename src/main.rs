@@ -2,7 +2,7 @@ use dotenvy::dotenv;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, time::Duration};
 
-mod lib;
+mod libs;
 mod middleware;
 mod models;
 mod routes;

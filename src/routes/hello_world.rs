@@ -6,9 +6,7 @@ use super::NestedRoute;
 pub struct HelloWorldRoute;
 
 impl NestedRoute<PgPool> for HelloWorldRoute {
-    fn path<'a>() -> &'a str {
-        "/helloworld"
-    }
+    const PATH: &'static str = "/helloworld";
     fn router() -> axum::Router<PgPool> {
         Router::new().route("/", get(hello_world))
     }

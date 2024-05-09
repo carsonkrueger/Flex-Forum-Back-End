@@ -1,11 +1,21 @@
 use serde::{de::Visitor, Deserialize, Serialize};
+use sqlb::SqlxBindable;
 use sqlx::postgres::{PgHasArrayType, PgTypeInfo};
 
-#[derive(sqlx::Type)]
+#[derive(sqlx::Type, Debug)]
 #[sqlx(type_name = "hash_scheme")]
 pub enum HashScheme {
     #[sqlx(rename = "argon2")]
     Argon2,
+}
+
+impl SqlxBindable for HashScheme {
+    fn bind_query<'q>(
+        &'q self,
+        query: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
+    ) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {
+        query.bind(self)
+    }
 }
 
 impl PgHasArrayType for HashScheme {
