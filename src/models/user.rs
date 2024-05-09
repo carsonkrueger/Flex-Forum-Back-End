@@ -54,7 +54,7 @@ pub struct ReadUserModel {
 }
 
 pub async fn email_exists(email: &str, pool: &PgPool) -> Result<bool> {
-    let result = sqlx::query("SELECT FROM user_management.users WHERE email = $2 LIMIT 1;")
+    let result = sqlx::query("SELECT FROM user_management.users WHERE email = $1 LIMIT 1;")
         .bind(email)
         .fetch_optional(pool)
         .await?;

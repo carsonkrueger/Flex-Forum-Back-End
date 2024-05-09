@@ -50,14 +50,19 @@ pub struct CreateUserViewModel {
 pub async fn create_user(
     State(pool): State<PgPool>,
     Json(body): Json<CreateUserViewModel>,
-) -> Result<i64> {
+) -> impl IntoResponse {
     if let Err(e) = body.validate() {
         return Err(Error::Validation(e.to_string()));
     }
 
     let email_exists = email_exists(&body.email, &pool).await?;
-    if !email_exists {
+    if email_exists {
         return Err(Error::EmailTaken);
+    }
+
+    let username_exists = username_exists(&body.username, &pool).await?;
+    if username_exists {
+        return Err(Error::UsernameTaken);
     }
 
     let (pwd_hash, pwd_salt) = hash_services::hash(body.password.as_bytes())?;
@@ -74,7 +79,7 @@ pub async fn create_user(
 
     let id = models::user::create(&pool, create_model).await?;
 
-    Ok(id)
+    Ok((StatusCode::CREATED, Json(id)))
 }
 
 pub async fn get_user(Path(id): Path<i64>, State(pool): State<PgPool>) -> impl IntoResponse {

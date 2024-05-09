@@ -3,10 +3,14 @@ use argon2::{
     Argon2,
 };
 
-pub fn hash(password: &[u8]) -> Result<(String, SaltString), argon2::password_hash::Error> {
+use crate::routes;
+
+pub fn hash(password: &[u8]) -> Result<(String, SaltString), routes::Error> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let hash = argon2.hash_password(password, &salt)?;
+    let hash = argon2
+        .hash_password(password, &salt)
+        .or(Err(routes::Error::InvalidAuth))?;
     Ok((hash.to_string(), salt))
 }
 
@@ -26,6 +30,4 @@ pub fn verify(
     let salt = SaltString::from_b64(salt_str)?;
     let hash = hash_with(password, &salt)?;
     return Ok(hash_str == hash.to_string());
-    // Argon2::default().verify_password(password, &hash)?;
-    // Ok(true)
 }
