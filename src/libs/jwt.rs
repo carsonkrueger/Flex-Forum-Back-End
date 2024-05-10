@@ -1,21 +1,35 @@
-use std::str::FromStr;
-
+use crate::{
+    routes::{Error, Result},
+    services::hash_services,
+};
+use argon2::password_hash::SaltString;
 use serde::Deserialize;
-use uuid::Uuid;
 
-use crate::routes::{Error, Result};
+use super::hash_scheme::HashScheme;
 
 #[derive(Clone, Deserialize)]
 pub struct JWT {
-    user_id: Uuid,
+    id: i64,
     expires: String,
     signature: String,
 }
 
 impl JWT {
-    // pub fn sign(&[&str]) -> String {
-
-    // }
+    pub fn new(id: i64, expires: String, key: &str) -> Result<JWT> {
+        let mut jwt = JWT {
+            id,
+            expires,
+            signature: "".to_string(),
+        };
+        jwt.sign(key)?;
+        Ok(jwt)
+    }
+    pub fn sign(&mut self, key: &str) -> Result<()> {
+        let pwd = format!("{}{}", self.id, self.expires);
+        let hash = hash_services::hash_with(pwd.as_bytes(), key, &HashScheme::Argon2)?;
+        self.signature = hash;
+        Ok(())
+    }
     /// Parses auth_token string into its 3 parts separated by a '.'
     /// (Does not validate the hash)
     pub fn parse_token(token_str: String) -> Result<JWT> {
@@ -27,10 +41,8 @@ impl JWT {
             return Err(Error::InvalidAuth);
         }
 
-        let user_id = Uuid::from_str(parts[0]).or(Err(Error::InvalidAuth))?;
-
         let jwt = JWT {
-            user_id,
+            id: parts[0].parse::<i64>().or(Err(Error::InvalidAuth))?,
             expires: parts[1].to_string(),
             signature: parts[2].to_string(),
         };
@@ -43,13 +55,19 @@ impl JWT {
         // hash check
         Ok(())
     }
-    pub fn user_id(&self) -> &Uuid {
-        &self.user_id
+    pub fn id(&self) -> &i64 {
+        &self.id
     }
     pub fn expires(&self) -> &String {
         &self.expires
     }
     pub fn signature(&self) -> &String {
         &self.signature
+    }
+}
+
+impl ToString for JWT {
+    fn to_string(&self) -> String {
+        format!("{}.{}.{}", self.id, self.expires, self.signature)
     }
 }

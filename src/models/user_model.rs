@@ -16,8 +16,9 @@ pub struct UserModel {
     pub last_name: String,
     pub email: String,
     pub username: String,
-    pub password_hash: String,
-    pub salt: String,
+    pub pwd_hash: String,
+    pub pwd_salt: String,
+    pub jwt_salt: String,
     pub hash_scheme: HashScheme,
     pub created_at: chrono::NaiveDate,
     pub deactivated_at: Option<NaiveDateTime>,
@@ -35,6 +36,7 @@ pub struct CreateUserModel {
     pub username: String,
     pub pwd_hash: String,
     pub pwd_salt: String,
+    // pub jwt_salt: String,
     pub hash_scheme: HashScheme,
 }
 
@@ -44,7 +46,6 @@ pub async fn create(pool: &PgPool, user: CreateUserModel) -> Result<i64> {
 
 #[derive(Serialize, Validate, FromRow)]
 pub struct ReadUserModel {
-    // pub id: i64,
     pub first_name: String,
     pub last_name: String,
     pub username: String,

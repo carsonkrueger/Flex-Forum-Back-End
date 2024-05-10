@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS user_management.users (
     email varchar(255) NOT NULL UNIQUE,
     username varchar(32) NOT NULL UNIQUE,
     pwd_hash varchar(128) NOT NULL,
-    pwd_salt varchar(128) NOT NULL,
+    pwd_salt varchar(32) NOT NULL,
+    -- jwt_salt varchar(32) NOT NULL,
     hash_scheme hash_scheme NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     deactivated_at timestamp with time zone DEFAULT NULL

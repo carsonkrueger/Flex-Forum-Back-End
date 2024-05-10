@@ -1,5 +1,6 @@
 use super::NestedRoute;
 use super::{Error, Result};
+use crate::libs::hash_scheme::HashScheme;
 use crate::libs::jwt::JWT;
 use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
 use crate::middleware::auth::AUTH_TOKEN;
@@ -53,6 +54,7 @@ pub struct SignUpModel {
 
 pub async fn sign_up(
     State(pool): State<PgPool>,
+    cookies: Cookies,
     Json(body): Json<SignUpModel>,
 ) -> impl IntoResponse {
     if let Err(e) = body.validate() {
@@ -64,7 +66,8 @@ pub async fn sign_up(
         return Err(Error::AlreadyTaken(taken));
     }
 
-    let (pwd_hash, pwd_salt, hash_scheme) = hash_services::hash(body.password.as_bytes())?;
+    let hash_scheme = HashScheme::Argon2;
+    let (pwd_hash, pwd_salt) = hash_services::hash(body.password.as_bytes(), &hash_scheme)?;
 
     let create_model = CreateUserModel {
         username: body.username,
@@ -77,6 +80,12 @@ pub async fn sign_up(
     };
 
     let id = models::user_model::create(&pool, create_model).await?;
+
+    let expires = "2024-5-10";
+    let key = "secret";
+    let jwt = JWT::new(id, expires.to_string(), key)?;
+    let auth_token = Cookie::new(AUTH_TOKEN, jwt.to_string());
+    cookies.add(auth_token);
 
     Ok((StatusCode::CREATED, Json(id)))
 }
