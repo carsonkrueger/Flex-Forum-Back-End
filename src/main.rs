@@ -1,6 +1,7 @@
 use dotenvy::dotenv;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, time::Duration};
+use tower_cookies::CookieManagerLayer;
 
 mod libs;
 mod middleware;
@@ -16,7 +17,7 @@ async fn main() {
         .await
         .expect("Could not run migrations");
 
-    let router = routes::create_routes(pool);
+    let router = routes::create_routes(pool).layer(CookieManagerLayer::new());
 
     let addr = "0.0.0.0:3000";
     let listener = tokio::net::TcpListener::bind(addr)

@@ -1,6 +1,6 @@
 use self::{hello_world::HelloWorldRoute, users_route::UserRoute};
 use crate::{
-    middleware::auth::{ctx_resolver, validate_auth},
+    middleware::auth_mw::{ctx_resolver, validate_auth},
     models,
 };
 use axum::{body::Body, http::StatusCode, middleware::from_fn, response::IntoResponse, Router};
@@ -12,7 +12,7 @@ mod users_route;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Debug)]
 pub enum Error {
     MissingAuthCookie,
     LoginFail,

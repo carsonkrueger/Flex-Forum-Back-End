@@ -1,3 +1,5 @@
+use std::env;
+
 use axum::{
     async_trait,
     body::Body,
@@ -6,16 +8,22 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use once_cell::sync::Lazy;
 use tower_cookies::{Cookie, Cookies};
 
 use crate::libs::{ctx::Ctx, jwt::JWT};
 use crate::routes::{Error, Result};
 
 pub const AUTH_TOKEN: &'static str = "auth_token";
+pub const JWT_SECRET: Lazy<String> = Lazy::new(get_jwt_secret);
+
+fn get_jwt_secret() -> String {
+    env::var("JWT_SECRET").expect("Could not get JWT_SECRET")
+}
 
 /// Enforces auth Ctx within extensions and validates the jwt
 pub async fn validate_auth(ctx: Result<Ctx>, req: Request<Body>, next: Next) -> Result<Response> {
-    ctx?.jwt().validate_token()?;
+    ctx?.jwt().validate_token(&JWT_SECRET)?;
     Ok(next.run(req).await)
 }
 

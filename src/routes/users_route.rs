@@ -3,17 +3,15 @@ use super::{Error, Result};
 use crate::libs::hash_scheme::HashScheme;
 use crate::libs::jwt::JWT;
 use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
-use crate::middleware::auth::AUTH_TOKEN;
-use crate::models;
-use crate::models::user_model::{
-    username_or_email_exists, CreateUserModel, ReadUserModel, UserModel,
-};
+use crate::middleware::auth_mw::{AUTH_TOKEN, JWT_SECRET};
+use crate::models::user_model::{username_or_email_exists, CreateUserModel, UserModel};
+use crate::models::{self, user_model};
 use crate::services::hash_services::{self, verify};
 use axum::extract::Path;
 use axum::routing::{get, post};
 use axum::Router;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlb::Fields;
 use sqlx::prelude::FromRow;
 use sqlx::PgPool;
@@ -54,7 +52,6 @@ pub struct SignUpModel {
 
 pub async fn sign_up(
     State(pool): State<PgPool>,
-    cookies: Cookies,
     Json(body): Json<SignUpModel>,
 ) -> impl IntoResponse {
     if let Err(e) = body.validate() {
@@ -81,34 +78,7 @@ pub async fn sign_up(
 
     let id = models::user_model::create(&pool, create_model).await?;
 
-    let expires = "2024-5-10";
-    let key = "secret";
-    let jwt = JWT::new(id, expires.to_string(), key)?;
-    let auth_token = Cookie::new(AUTH_TOKEN, jwt.to_string());
-    cookies.add(auth_token);
-
     Ok((StatusCode::CREATED, Json(id)))
-}
-
-pub async fn get_user(Path(id): Path<i64>, State(pool): State<PgPool>) -> impl IntoResponse {
-    let user_result = sqlx::query_as::<_, ReadUserModel>(
-        "
-        SELECT
-            first_name,
-            last_name,
-            username
-        FROM user_management.users WHERE id = $1;
-        ",
-    )
-    .bind(id)
-    .fetch_optional(&pool)
-    .await;
-
-    match user_result {
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
-        Ok(None) => Err(StatusCode::UNAUTHORIZED),
-        Ok(Some(user)) => Ok((StatusCode::ACCEPTED, Json(user))),
-    }
 }
 
 #[derive(Deserialize, Validate)]
@@ -130,7 +100,7 @@ pub struct HashModel {
 /// logs user in with username & password
 pub async fn log_in(
     State(pool): State<PgPool>,
-    // cookies: Cookies,
+    cookies: Cookies,
     Json(body): Json<LoginModel>,
 ) -> Result<Json<i64>> {
     validate_struct(&body)?;
@@ -150,9 +120,35 @@ pub async fn log_in(
         return Err(Error::LoginFail);
     }
 
-    // let jwt = JWT::
-    // let cookie = Cookie::new(AUTH_TOKEN, "");
-    // cookies.add(cookie);
+    let expires = tower_cookies::cookie::time::OffsetDateTime::now_utc()
+        + tower_cookies::cookie::time::Duration::minutes(2);
+
+    let result_jwt = JWT::new(hash_model.id, expires.to_string(), &JWT_SECRET);
+
+    if let Err(e) = result_jwt {
+        return Err(e);
+    }
+
+    let mut auth_cookie = Cookie::new(AUTH_TOKEN, result_jwt.unwrap().to_string());
+    auth_cookie.set_expires(expires);
+    cookies.add(auth_cookie);
 
     Ok(Json(hash_model.id))
+}
+
+#[derive(Fields, FromRow, Serialize)]
+pub struct ReadUserModel {
+    username: String,
+    first_name: String,
+    last_name: String,
+}
+
+pub async fn get_user(
+    Path(username): Path<String>,
+    State(pool): State<PgPool>,
+) -> Result<Json<Option<ReadUserModel>>> {
+    let read_user =
+        user_model::get_one_by_username::<UserModel, ReadUserModel>(&username, &pool).await?;
+
+    Ok(Json(read_user))
 }
