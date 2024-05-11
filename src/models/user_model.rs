@@ -2,8 +2,8 @@ use super::{
     base::{self, DbBmc},
     ModelResult,
 };
-use crate::libs::hash_scheme::HashScheme;
 use chrono::NaiveDateTime;
+use hash_lib::hash_scheme::HashScheme;
 use serde::{Deserialize, Serialize};
 use sqlb::{Fields, HasFields};
 use sqlx::{postgres::PgRow, prelude::FromRow, PgPool};
@@ -89,4 +89,24 @@ where
         .await?;
 
     Ok(entity)
+}
+
+const MAX_LIMIT: i64 = 32;
+
+pub async fn list_by_username<MC, E>(
+    mut limit: i64,
+    offset: i64,
+    username: &str,
+    db: &PgPool,
+) -> ModelResult<Vec<E>>
+where
+    MC: DbBmc,
+    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    E: HasFields,
+{
+    limit = limit.clamp(0, MAX_LIMIT);
+
+    let entities = base::list::<UserModel, _>(limit, offset, "username", username, db).await?;
+
+    Ok(entities)
 }

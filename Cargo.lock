@@ -875,6 +875,7 @@ dependencies = [
 name = "lib-hash"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "serde",
  "sqlb",
  "sqlx",

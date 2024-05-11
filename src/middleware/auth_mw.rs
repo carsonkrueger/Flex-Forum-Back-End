@@ -8,6 +8,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use hash_lib::schemes::argon2_v01::Argon2V01;
 use once_cell::sync::Lazy;
 use tower_cookies::{Cookie, Cookies};
 
@@ -27,7 +28,7 @@ pub async fn validate_auth(
     req: Request<Body>,
     next: Next,
 ) -> RouterResult<Response> {
-    ctx?.jwt().validate_token(&JWT_SECRET)?;
+    ctx?.jwt().validate_token(&JWT_SECRET, &Argon2V01)?;
     Ok(next.run(req).await)
 }
 

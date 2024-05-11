@@ -83,6 +83,12 @@ impl From<crate::models::ModelError> for RouteError {
     }
 }
 
+impl From<hash_lib::error::HashError> for RouteError {
+    fn from(_value: hash_lib::error::HashError) -> Self {
+        RouteError::HashError
+    }
+}
+
 impl From<argon2::password_hash::Error> for RouteError {
     fn from(_value: argon2::password_hash::Error) -> Self {
         RouteError::HashError

@@ -67,3 +67,31 @@ pub async fn delete<MC: DbBmc>(id: i64, db: &Pool<Postgres>) -> ModelResult<u64>
 
     Ok(rows_affected)
 }
+
+const MAX_LIMIT: i64 = 64;
+
+pub async fn list<MC, E>(
+    mut limit: i64,
+    offset: i64,
+    column: &str,
+    like_str: &str,
+    db: &Pool<Postgres>,
+) -> ModelResult<Vec<E>>
+where
+    MC: DbBmc,
+    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    E: HasFields,
+{
+    limit = limit.clamp(0, MAX_LIMIT);
+
+    let entity = sqlb::select()
+        .table(MC::TABLE)
+        .columns(E::field_names())
+        .and_where(column, "LIKE", format!("%{}%", like_str))
+        .limit(limit)
+        .offset(offset)
+        .fetch_all(db)
+        .await?;
+
+    Ok(entity)
+}

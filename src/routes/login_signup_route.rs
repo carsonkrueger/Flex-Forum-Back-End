@@ -1,17 +1,17 @@
 use super::NestedRoute;
 use super::{RouteError, RouterResult};
-use crate::libs::hash_scheme::HashScheme;
 use crate::libs::jwt::JWT;
 use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
 use crate::middleware::auth_mw::{AUTH_TOKEN, JWT_SECRET};
 use crate::models::user_model::{username_or_email_exists, CreateUserModel, UserModel};
 use crate::models::{self};
-use crate::services::hash_services::{self, verify};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
+use hash_lib::hash_scheme::{HashScheme, Hasher};
+use hash_lib::schemes::argon2_v01::Argon2V01;
 use serde::Deserialize;
 use sqlb::Fields;
 use sqlx::prelude::FromRow;
@@ -63,8 +63,8 @@ pub async fn sign_up(
         return Err(RouteError::AlreadyTaken(taken));
     }
 
-    let hash_scheme = HashScheme::Argon2;
-    let (pwd_hash, pwd_salt) = hash_services::hash(body.password.as_bytes(), &hash_scheme)?;
+    let hasher = Argon2V01;
+    let (pwd_hash, pwd_salt) = hasher.hash(&body.password)?;
 
     let create_model = CreateUserModel {
         username: body.username,
@@ -73,7 +73,7 @@ pub async fn sign_up(
         last_name: body.last_name,
         pwd_hash,
         pwd_salt: pwd_salt.to_string(),
-        hash_scheme,
+        hash_scheme: hasher.into(),
     };
 
     let id = models::user_model::create(&pool, create_model).await?;
@@ -93,6 +93,7 @@ pub struct LoginModel {
 #[derive(FromRow, Fields)]
 pub struct HashModel {
     id: i64,
+    hash_scheme: HashScheme,
     pwd_hash: String,
     pwd_salt: String,
 }
@@ -111,18 +112,14 @@ pub async fn log_in(
 
     let hash_model = option_hash.ok_or(RouteError::LoginFail)?;
 
-    verify(
-        body.password.as_bytes(),
-        &hash_model.pwd_salt,
-        &hash_model.pwd_hash,
-    )?;
+    let hasher = hash_model.hash_scheme.hasher();
+    hasher.verify(&body.password, &hash_model.pwd_salt, &hash_model.pwd_hash)?;
 
-    let result_jwt = JWT::new(hash_model.id, &JWT_SECRET)?;
-
-    let expires = tower_cookies::cookie::time::OffsetDateTime::now_utc()
-        + tower_cookies::cookie::time::Duration::minutes(4);
+    let result_jwt = JWT::new(hash_model.id, &JWT_SECRET, &Argon2V01)?;
 
     let mut auth_cookie = Cookie::new(AUTH_TOKEN, result_jwt.to_string());
+    let expires = tower_cookies::cookie::time::OffsetDateTime::now_utc()
+        + tower_cookies::cookie::time::Duration::minutes(4);
     auth_cookie.set_expires(expires);
     auth_cookie.set_path("/");
     cookies.add(auth_cookie);

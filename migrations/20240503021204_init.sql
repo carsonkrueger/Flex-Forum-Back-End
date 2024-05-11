@@ -2,7 +2,7 @@
 
 CREATE SCHEMA IF NOT EXISTS user_management;
 
-CREATE TYPE hash_scheme AS ENUM ('argon2');
+CREATE TYPE hash_scheme AS ENUM ('argon2_v01');
 
 CREATE TABLE IF NOT EXISTS user_management.users (
     -- id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

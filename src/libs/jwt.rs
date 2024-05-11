@@ -1,13 +1,9 @@
-use crate::{
-    routes::{RouteError, RouterResult},
-    services::hash_services,
-};
-use serde::Deserialize;
+use crate::routes::{RouteError, RouterResult};
 use uuid::Uuid;
 
-use super::hash_scheme::HashScheme;
+use hash_lib::hash_scheme::Hasher;
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Debug)]
 pub struct JWT {
     id: i64,
     rng: String,
@@ -15,18 +11,18 @@ pub struct JWT {
 }
 
 impl JWT {
-    pub fn new(id: i64, key: &str) -> RouterResult<JWT> {
+    pub fn new<H: Hasher>(id: i64, key: &str, hasher: &H) -> RouterResult<JWT> {
         let mut jwt = JWT {
             id,
             rng: Uuid::new_v4().to_string(),
             signature: None,
         };
-        jwt.sign(key)?;
+        jwt.sign(key, hasher)?;
         Ok(jwt)
     }
-    pub fn sign(&mut self, salt: &str) -> RouterResult<()> {
+    pub fn sign<H: Hasher>(&mut self, salt: &str, hasher: &H) -> RouterResult<()> {
         let pwd = self.as_pwd();
-        let hash = hash_services::hash_with_salt(pwd.as_bytes(), salt, &HashScheme::Argon2)?;
+        let hash = hasher.hash_with_salt(&pwd, salt)?;
         self.signature = Some(hash);
         Ok(())
     }
@@ -52,14 +48,14 @@ impl JWT {
         Ok(jwt)
     }
     /// Validates the jwt using the secret key and the hash, returning true if valid
-    pub fn validate_token(&self, salt: &str) -> RouterResult<()> {
+    pub fn validate_token<H: Hasher>(&self, salt: &String, hasher: &H) -> RouterResult<()> {
         let pwd = self.as_pwd();
-
-        hash_services::verify(
-            pwd.as_bytes(),
+        hasher.verify(
+            &pwd,
             salt,
             self.signature.as_ref().ok_or(RouteError::InvalidAuth)?,
-        )
+        )?;
+        Ok(())
     }
     pub fn id(&self) -> &i64 {
         &self.id

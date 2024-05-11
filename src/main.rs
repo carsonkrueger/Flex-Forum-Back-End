@@ -6,7 +6,6 @@ mod libs;
 mod middleware;
 mod models;
 mod routes;
-mod services;
 
 #[tokio::main]
 async fn main() {
