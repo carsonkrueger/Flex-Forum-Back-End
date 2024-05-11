@@ -1,0 +1,13 @@
+[package]
+name = "lib-hash"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.201", features = ["derive"] }
+sqlb = "0.4.0"
+sqlx = "0.7.4"
+
+[lib]
+name = "hash_lib"
+path = "lib.rs"
