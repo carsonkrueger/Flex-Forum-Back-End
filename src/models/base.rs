@@ -1,14 +1,14 @@
 use sqlb::HasFields;
 use sqlx::{postgres::PgRow, FromRow, Pool, Postgres};
 
-use super::Result;
+use super::ModelResult;
 
 pub trait DbBmc {
     const TABLE: &'static str;
 }
 
 /// Creates a row with the table given, returning the id of the inserted row.
-pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> Result<i64> {
+pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> ModelResult<i64> {
     let fields = data.not_none_fields();
 
     let (id,) = sqlb::insert()
@@ -22,7 +22,7 @@ pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> Re
 }
 
 // Gets the first row with the given id.
-pub async fn get_one<MC, E>(id: i64, db: &Pool<Postgres>) -> Result<Option<E>>
+pub async fn get_one<MC, E>(id: i64, db: &Pool<Postgres>) -> ModelResult<Option<E>>
 where
     MC: DbBmc,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
@@ -40,7 +40,11 @@ where
 }
 
 // Updates the given fields with the given id, returning the number of rows affected.
-pub async fn update<MC: DbBmc, E: HasFields>(id: i64, data: E, db: &Pool<Postgres>) -> Result<u64> {
+pub async fn update<MC: DbBmc, E: HasFields>(
+    id: i64,
+    data: E,
+    db: &Pool<Postgres>,
+) -> ModelResult<u64> {
     let fields = data.not_none_fields();
 
     let rows_affected = sqlb::update()
@@ -54,7 +58,7 @@ pub async fn update<MC: DbBmc, E: HasFields>(id: i64, data: E, db: &Pool<Postgre
 }
 
 // Deletes row with the given id, returning the number of rows affected.
-pub async fn delete<MC: DbBmc>(id: i64, db: &Pool<Postgres>) -> Result<u64> {
+pub async fn delete<MC: DbBmc>(id: i64, db: &Pool<Postgres>) -> ModelResult<u64> {
     let rows_affected = sqlb::delete()
         .table(MC::TABLE)
         .and_where_eq("id", id)

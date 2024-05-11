@@ -12,7 +12,7 @@ use once_cell::sync::Lazy;
 use tower_cookies::{Cookie, Cookies};
 
 use crate::libs::{ctx::Ctx, jwt::JWT};
-use crate::routes::{Error, Result};
+use crate::routes::{RouteError, RouterResult};
 
 pub const AUTH_TOKEN: &'static str = "auth_token";
 pub const JWT_SECRET: Lazy<String> = Lazy::new(get_jwt_secret);
@@ -22,8 +22,15 @@ fn get_jwt_secret() -> String {
 }
 
 /// Enforces auth Ctx within extensions and validates the jwt
-pub async fn validate_auth(ctx: Result<Ctx>, req: Request<Body>, next: Next) -> Result<Response> {
-    ctx?.jwt().validate_token(&JWT_SECRET)?;
+pub async fn validate_auth(
+    ctx: RouterResult<Ctx>,
+    req: Request<Body>,
+    next: Next,
+) -> RouterResult<Response> {
+    let valid = ctx?.jwt().validate_token(&JWT_SECRET)?;
+    if !valid {
+        return Err(RouteError::InvalidAuth);
+    }
     Ok(next.run(req).await)
 }
 
@@ -33,18 +40,18 @@ pub async fn ctx_resolver(
     cookies: Cookies,
     mut req: Request<Body>,
     next: Next,
-) -> Result<Response> {
+) -> RouterResult<Response> {
     let token_str = cookies.get(AUTH_TOKEN).map(|c| c.value().to_string());
 
     let result_ctx = match token_str
-        .ok_or(Error::MissingAuthCookie)
+        .ok_or(RouteError::MissingAuthCookie)
         .and_then(JWT::parse_token)
     {
         Ok(jwt) => Ok(Ctx::new(jwt)),
         Err(e) => Err(e),
     };
 
-    if result_ctx.is_err() && !matches!(result_ctx, Err(Error::MissingAuthCookie)) {
+    if result_ctx.is_err() && !matches!(result_ctx, Err(RouteError::MissingAuthCookie)) {
         cookies.remove(Cookie::from(AUTH_TOKEN));
     }
 
@@ -54,14 +61,14 @@ pub async fn ctx_resolver(
 
 #[async_trait]
 impl<S: Send + Sync> FromRequestParts<S> for Ctx {
-    type Rejection = Error;
+    type Rejection = RouteError;
 
     #[allow(clippy::type_complexity, clippy::type_repetition_in_bounds)]
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> RouterResult<Self> {
         parts
             .extensions
-            .get::<Result<Ctx>>()
-            .ok_or(Error::InvalidAuth)?
+            .get::<RouterResult<Ctx>>()
+            .ok_or(RouteError::InvalidAuth)?
             .clone()
     }
 }

@@ -1,6 +1,6 @@
 use super::{
     base::{self, DbBmc},
-    Result,
+    ModelResult,
 };
 use crate::libs::hash_scheme::HashScheme;
 use chrono::NaiveDateTime;
@@ -40,7 +40,7 @@ pub struct CreateUserModel {
     pub hash_scheme: HashScheme,
 }
 
-pub async fn create(pool: &PgPool, user: CreateUserModel) -> Result<i64> {
+pub async fn create(pool: &PgPool, user: CreateUserModel) -> ModelResult<i64> {
     base::create::<UserModel, _>(user, &pool).await
 }
 
@@ -56,7 +56,7 @@ pub async fn username_or_email_exists(
     username: &str,
     email: &str,
     pool: &PgPool,
-) -> Result<Option<String>> {
+) -> ModelResult<Option<String>> {
     let result = sqlx::query_scalar::<_, (String, String)>("SELECT (email, username) FROM user_management.users WHERE email = $1 OR username = $2 LIMIT 1;")
         .bind(email)
         .bind(username)
@@ -74,7 +74,7 @@ pub async fn username_or_email_exists(
     Ok(None)
 }
 
-pub async fn get_one_by_username<MC, E>(username: &str, db: &PgPool) -> Result<Option<E>>
+pub async fn get_one_by_username<MC, E>(username: &str, db: &PgPool) -> ModelResult<Option<E>>
 where
     MC: DbBmc,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,

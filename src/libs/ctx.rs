@@ -1,5 +1,3 @@
-use uuid::Uuid;
-
 use super::jwt::JWT;
 
 #[derive(Clone)]

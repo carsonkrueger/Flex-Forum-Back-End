@@ -1,19 +1,25 @@
 use self::{hello_world::HelloWorldRoute, users_route::UserRoute};
 use crate::{
-    middleware::auth_mw::{ctx_resolver, validate_auth},
+    middleware::{auth_mw::ctx_resolver, logger_mw::logger},
     models,
 };
-use axum::{body::Body, http::StatusCode, middleware::from_fn, response::IntoResponse, Router};
+use axum::{
+    body::Body,
+    http::StatusCode,
+    middleware::{self, from_fn},
+    response::IntoResponse,
+    Router,
+};
 use serde::Serialize;
 use sqlx::PgPool;
 
 mod hello_world;
 mod users_route;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type RouterResult<T> = std::result::Result<T, RouteError>;
 
 #[derive(Clone, Serialize, Debug)]
-pub enum Error {
+pub enum RouteError {
     MissingAuthCookie,
     LoginFail,
     InvalidAuth,
@@ -32,13 +38,13 @@ pub trait NestedRoute<S> {
 pub fn create_routes(pool: PgPool) -> Router {
     Router::new()
         .nest(HelloWorldRoute::PATH, HelloWorldRoute::router())
-        .layer(from_fn(validate_auth))
-        .layer(from_fn(ctx_resolver))
         .nest(UserRoute::PATH, UserRoute::router())
+        .layer(middleware::map_response(logger))
+        .layer(from_fn(ctx_resolver))
         .with_state(pool)
 }
 
-impl IntoResponse for Error {
+impl IntoResponse for RouteError {
     fn into_response(self) -> axum::response::Response<Body> {
         let mut response = StatusCode::from(&self).into_response();
         let body = Body::new(self.to_string());
@@ -47,9 +53,9 @@ impl IntoResponse for Error {
     }
 }
 
-impl From<&Error> for StatusCode {
-    fn from(value: &Error) -> Self {
-        use Error::*;
+impl From<&RouteError> for StatusCode {
+    fn from(value: &RouteError) -> Self {
+        use RouteError::*;
         match value {
             InvalidAuth => StatusCode::FORBIDDEN,
             MissingAuthCookie => StatusCode::FORBIDDEN,
@@ -61,21 +67,21 @@ impl From<&Error> for StatusCode {
     }
 }
 
-impl From<crate::models::Error> for Error {
-    fn from(_value: models::Error) -> Self {
-        Error::Unknown
+impl From<crate::models::ModelError> for RouteError {
+    fn from(_value: models::ModelError) -> Self {
+        RouteError::Unknown
     }
 }
 
-impl From<argon2::password_hash::Error> for Error {
+impl From<argon2::password_hash::Error> for RouteError {
     fn from(_value: argon2::password_hash::Error) -> Self {
-        Error::HashError
+        RouteError::HashError
     }
 }
 
-impl ToString for Error {
+impl ToString for RouteError {
     fn to_string(&self) -> String {
-        use Error::*;
+        use RouteError::*;
         match &self {
             AlreadyTaken(s) => format!("{} already taken", s),
             InvalidAuth => format!("Invalid auth token"),

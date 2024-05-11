@@ -1,5 +1,6 @@
 use super::NestedRoute;
-use super::{Error, Result};
+use super::{RouteError, RouterResult};
+use crate::libs::ctx::Ctx;
 use crate::libs::hash_scheme::HashScheme;
 use crate::libs::jwt::JWT;
 use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
@@ -24,9 +25,9 @@ impl NestedRoute<PgPool> for UserRoute {
     const PATH: &'static str = "/users";
     fn router() -> Router<PgPool> {
         Router::new()
-            .route("/", post(sign_up))
-            .route("/:id", get(get_user))
+            .route("/signup", post(sign_up))
             .route("/login", post(log_in))
+            .route("/:id", get(get_user))
     }
 }
 
@@ -55,12 +56,12 @@ pub async fn sign_up(
     Json(body): Json<SignUpModel>,
 ) -> impl IntoResponse {
     if let Err(e) = body.validate() {
-        return Err(Error::Validation(e.to_string()));
+        return Err(RouteError::Validation(e.to_string()));
     }
 
     let taken_str = username_or_email_exists(&body.username, &body.email, &pool).await?;
     if let Some(taken) = taken_str {
-        return Err(Error::AlreadyTaken(taken));
+        return Err(RouteError::AlreadyTaken(taken));
     }
 
     let hash_scheme = HashScheme::Argon2;
@@ -102,14 +103,14 @@ pub async fn log_in(
     State(pool): State<PgPool>,
     cookies: Cookies,
     Json(body): Json<LoginModel>,
-) -> Result<Json<i64>> {
+) -> RouterResult<Json<i64>> {
     validate_struct(&body)?;
 
     let option_hash =
         models::user_model::get_one_by_username::<UserModel, HashModel>(&body.username, &pool)
             .await?;
 
-    let hash_model = option_hash.ok_or(Error::LoginFail)?;
+    let hash_model = option_hash.ok_or(RouteError::LoginFail)?;
     let verified = verify(
         body.password.as_bytes(),
         &hash_model.pwd_salt,
@@ -117,19 +118,15 @@ pub async fn log_in(
     )?;
 
     if !verified {
-        return Err(Error::LoginFail);
+        return Err(RouteError::LoginFail);
     }
+
+    let result_jwt = JWT::new(hash_model.id, &JWT_SECRET)?;
 
     let expires = tower_cookies::cookie::time::OffsetDateTime::now_utc()
-        + tower_cookies::cookie::time::Duration::minutes(2);
+        + tower_cookies::cookie::time::Duration::minutes(4);
 
-    let result_jwt = JWT::new(hash_model.id, expires.to_string(), &JWT_SECRET);
-
-    if let Err(e) = result_jwt {
-        return Err(e);
-    }
-
-    let mut auth_cookie = Cookie::new(AUTH_TOKEN, result_jwt.unwrap().to_string());
+    let mut auth_cookie = Cookie::new(AUTH_TOKEN, result_jwt.to_string());
     auth_cookie.set_expires(expires);
     cookies.add(auth_cookie);
 
@@ -144,11 +141,11 @@ pub struct ReadUserModel {
 }
 
 pub async fn get_user(
+    _ctx: Ctx,
     Path(username): Path<String>,
     State(pool): State<PgPool>,
-) -> Result<Json<Option<ReadUserModel>>> {
+) -> RouterResult<Json<Option<ReadUserModel>>> {
     let read_user =
         user_model::get_one_by_username::<UserModel, ReadUserModel>(&username, &pool).await?;
-
     Ok(Json(read_user))
 }

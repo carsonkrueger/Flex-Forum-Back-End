@@ -1,16 +1,16 @@
 pub mod base;
 pub mod user_model;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type ModelResult<T> = std::result::Result<T, ModelError>;
 
 #[derive(Debug)]
-pub enum Error {
+pub enum ModelError {
     // External errors
     Sqlx(sqlx::Error),
 }
 
-impl From<sqlx::Error> for Error {
+impl From<sqlx::Error> for ModelError {
     fn from(value: sqlx::Error) -> Self {
-        Error::Sqlx(value)
+        ModelError::Sqlx(value)
     }
 }
