@@ -1,19 +1,26 @@
-use self::{hello_world::HelloWorldRoute, users_route::UserRoute};
+use self::{
+    hello_world::HelloWorldRoute, login_signup_route::LoginSignupRoute, users_route::UserRoute,
+};
 use crate::{
-    middleware::{auth_mw::ctx_resolver, logger_mw::logger},
+    middleware::{
+        auth_mw::{ctx_resolver, validate_auth},
+        logger_mw::logger,
+    },
     models,
 };
 use axum::{
     body::Body,
     http::StatusCode,
-    middleware::{self, from_fn},
+    middleware::{from_fn, map_response},
     response::IntoResponse,
     Router,
 };
 use serde::Serialize;
 use sqlx::PgPool;
+use tower_cookies::CookieManagerLayer;
 
 mod hello_world;
+mod login_signup_route;
 mod users_route;
 
 pub type RouterResult<T> = std::result::Result<T, RouteError>;
@@ -39,8 +46,11 @@ pub fn create_routes(pool: PgPool) -> Router {
     Router::new()
         .nest(HelloWorldRoute::PATH, HelloWorldRoute::router())
         .nest(UserRoute::PATH, UserRoute::router())
-        .layer(middleware::map_response(logger))
+        .layer(from_fn(validate_auth))
+        .nest(LoginSignupRoute::PATH, LoginSignupRoute::router())
         .layer(from_fn(ctx_resolver))
+        .layer(map_response(logger))
+        .layer(CookieManagerLayer::new())
         .with_state(pool)
 }
 

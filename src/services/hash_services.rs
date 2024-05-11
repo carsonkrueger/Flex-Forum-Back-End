@@ -33,8 +33,10 @@ pub fn hash_with_salt(password: &[u8], salt: &str, _scheme: &HashScheme) -> Rout
 }
 
 /// Returns true if password is verfied to be correct.
-pub fn verify(password: &[u8], salt_str: &str, hash_str: &str) -> RouterResult<bool> {
+pub fn verify(password: &[u8], salt_str: &str, hash_str: &str) -> RouterResult<()> {
     let mut pwd_hash = PasswordHash::new(hash_str)?;
     pwd_hash.salt = Some(Salt::from_b64(salt_str)?);
-    Ok(ARGON2.verify_password(password, &pwd_hash).is_ok())
+    ARGON2
+        .verify_password(password, &pwd_hash)
+        .or(Err(RouteError::InvalidAuth))
 }

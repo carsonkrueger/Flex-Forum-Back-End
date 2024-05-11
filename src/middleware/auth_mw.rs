@@ -27,10 +27,7 @@ pub async fn validate_auth(
     req: Request<Body>,
     next: Next,
 ) -> RouterResult<Response> {
-    let valid = ctx?.jwt().validate_token(&JWT_SECRET)?;
-    if !valid {
-        return Err(RouteError::InvalidAuth);
-    }
+    ctx?.jwt().validate_token(&JWT_SECRET)?;
     Ok(next.run(req).await)
 }
 

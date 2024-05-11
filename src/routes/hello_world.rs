@@ -1,9 +1,6 @@
+use super::NestedRoute;
 use axum::{routing::get, Router};
 use sqlx::PgPool;
-
-use crate::libs::ctx::Ctx;
-
-use super::NestedRoute;
 
 pub struct HelloWorldRoute;
 
@@ -14,7 +11,6 @@ impl NestedRoute<PgPool> for HelloWorldRoute {
     }
 }
 
-pub async fn hello_world(ctx: Ctx) -> String {
-    println!("{}", ctx.jwt().id());
+pub async fn hello_world() -> String {
     "hello world!!1!".to_owned()
 }

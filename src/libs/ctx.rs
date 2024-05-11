@@ -1,6 +1,6 @@
 use super::jwt::JWT;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Ctx {
     jwt: JWT,
 }

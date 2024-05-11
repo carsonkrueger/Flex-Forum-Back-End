@@ -52,7 +52,7 @@ impl JWT {
         Ok(jwt)
     }
     /// Validates the jwt using the secret key and the hash, returning true if valid
-    pub fn validate_token(&self, salt: &str) -> RouterResult<bool> {
+    pub fn validate_token(&self, salt: &str) -> RouterResult<()> {
         let pwd = self.as_pwd();
 
         hash_services::verify(
