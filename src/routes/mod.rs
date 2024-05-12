@@ -33,6 +33,7 @@ pub enum RouteError {
     Validation(String),
     AlreadyTaken(String),
     HashError,
+    ExpiredAuthToken,
     // Used to hide error from users
     Unknown,
 }
@@ -67,9 +68,9 @@ impl From<&RouteError> for StatusCode {
     fn from(value: &RouteError) -> Self {
         use RouteError::*;
         match value {
-            InvalidAuth => StatusCode::FORBIDDEN,
-            MissingAuthCookie => StatusCode::FORBIDDEN,
-            LoginFail => StatusCode::UNAUTHORIZED,
+            ExpiredAuthToken | InvalidAuth | MissingAuthCookie | LoginFail => {
+                StatusCode::UNAUTHORIZED
+            }
             AlreadyTaken(..) => StatusCode::CONFLICT,
             Validation(..) => StatusCode::BAD_REQUEST,
             HashError | Unknown => StatusCode::INTERNAL_SERVER_ERROR,
@@ -100,6 +101,7 @@ impl ToString for RouteError {
         use RouteError::*;
         match &self {
             AlreadyTaken(s) => format!("{} already taken", s),
+            ExpiredAuthToken => format!("Auth token expired"),
             InvalidAuth => format!("Invalid auth token"),
             LoginFail => format!("Login failed"),
             MissingAuthCookie => format!("Missing auth token"),
