@@ -28,12 +28,14 @@ pub type RouterResult<T> = std::result::Result<T, RouteError>;
 #[derive(Clone, Serialize, Debug)]
 pub enum RouteError {
     MissingAuthCookie,
+    MissingJWTSignature,
     LoginFail,
     InvalidAuth,
     Validation(String),
     AlreadyTaken(String),
     HashError,
     ExpiredAuthToken,
+    ChronoParseError,
     // Used to hide error from users
     Unknown,
 }
@@ -68,12 +70,11 @@ impl From<&RouteError> for StatusCode {
     fn from(value: &RouteError) -> Self {
         use RouteError::*;
         match value {
-            ExpiredAuthToken | InvalidAuth | MissingAuthCookie | LoginFail => {
-                StatusCode::UNAUTHORIZED
-            }
+            ExpiredAuthToken | MissingJWTSignature | InvalidAuth | MissingAuthCookie
+            | LoginFail => StatusCode::UNAUTHORIZED,
             AlreadyTaken(..) => StatusCode::CONFLICT,
             Validation(..) => StatusCode::BAD_REQUEST,
-            HashError | Unknown => StatusCode::INTERNAL_SERVER_ERROR,
+            HashError | ChronoParseError | Unknown => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -96,6 +97,12 @@ impl From<argon2::password_hash::Error> for RouteError {
     }
 }
 
+impl From<chrono::ParseError> for RouteError {
+    fn from(_value: chrono::ParseError) -> Self {
+        Self::ChronoParseError
+    }
+}
+
 impl ToString for RouteError {
     fn to_string(&self) -> String {
         use RouteError::*;
@@ -105,8 +112,9 @@ impl ToString for RouteError {
             InvalidAuth => format!("Invalid auth token"),
             LoginFail => format!("Login failed"),
             MissingAuthCookie => format!("Missing auth token"),
+            MissingJWTSignature => format!("Missing JWT signature"),
             Validation(s) => s.to_string(),
-            HashError | Unknown => format!("Unknown error"),
+            HashError | ChronoParseError | Unknown => format!("Unknown error"),
         }
     }
 }

@@ -1,9 +1,9 @@
 use crate::routes::{RouteError, RouterResult};
 
 use chrono::{DateTime, Days, Utc};
-use hash_lib::hash_scheme::Hasher;
+use hash_lib::{error::HashError, hash_scheme::Hasher};
 
-pub const JWT_DATE_FORMAT: &'static str = "%Y-%m-%d_%H:%M";
+pub const JWT_DATE_FORMAT: &'static str = "%Y/%m/%d_%H/%M/%S_%z";
 
 #[derive(Clone, Debug)]
 pub struct JWT {
@@ -16,6 +16,7 @@ pub struct JWT {
 impl JWT {
     pub fn new<H: Hasher>(id: i64, key: &str, hasher: &H) -> RouterResult<JWT> {
         let expires = Utc::now().checked_add_days(Days::new(1)).unwrap();
+        // expires.with_timezone(TimeZone:)
 
         let mut jwt = JWT {
             id,
@@ -44,9 +45,9 @@ impl JWT {
         }
 
         let id = parts[0].parse::<i64>().or(Err(RouteError::InvalidAuth))?;
-        let expires = chrono::DateTime::parse_from_str(&parts[1].to_string(), JWT_DATE_FORMAT)
-            .unwrap()
-            .to_utc();
+
+        let expires =
+            chrono::DateTime::parse_from_str(&parts[1].to_string(), JWT_DATE_FORMAT)?.to_utc();
 
         let jwt = JWT {
             id,
@@ -64,11 +65,22 @@ impl JWT {
         }
 
         let pwd = self.as_pwd();
-        hasher.verify(
+        let hash_result = hasher.verify(
             &pwd,
             salt,
-            self.signature.as_ref().ok_or(RouteError::InvalidAuth)?,
-        )?;
+            self.signature
+                .as_ref()
+                .ok_or(RouteError::MissingJWTSignature)?,
+        );
+
+        match hash_result {
+            Err(HashError::Argon2Error(argon2::password_hash::Error::Password)) => {
+                return Err(RouteError::InvalidAuth)
+            }
+            Err(_) => return Err(RouteError::HashError),
+            _ => (),
+        }
+
         Ok(())
     }
     pub fn id(&self) -> &i64 {
@@ -81,7 +93,10 @@ impl JWT {
         &self.signature
     }
     fn as_pwd(&self) -> String {
-        format!("{}{}", self.id, self.expires)
+        format!("{}{}", self.id, self.expires_to_string())
+    }
+    fn expires_to_string(&self) -> String {
+        self.expires().format(&JWT_DATE_FORMAT).to_string()
     }
 }
 
@@ -90,7 +105,7 @@ impl ToString for JWT {
         format!(
             "{}.{}.{}",
             self.id,
-            self.expires,
+            self.expires_to_string(),
             self.signature.clone().unwrap_or("".to_owned())
         )
     }
