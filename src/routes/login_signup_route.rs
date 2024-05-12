@@ -1,6 +1,6 @@
 use super::NestedRoute;
 use super::{RouteError, RouterResult};
-use crate::libs::jwt::JWT;
+use crate::libs::jwt::{JWT, JWT_LIFE_IN_MINUTES};
 use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
 use crate::middleware::auth_mw::{AUTH_TOKEN, JWT_SECRET};
 use crate::models::user_model::{username_or_email_exists, CreateUserModel, UserModel};
@@ -119,7 +119,7 @@ pub async fn log_in(
 
     let mut auth_cookie = Cookie::new(AUTH_TOKEN, result_jwt.to_string());
     let expires = tower_cookies::cookie::time::OffsetDateTime::now_utc()
-        + tower_cookies::cookie::time::Duration::minutes(4);
+        + tower_cookies::cookie::time::Duration::minutes(JWT_LIFE_IN_MINUTES);
     auth_cookie.set_expires(expires);
     auth_cookie.set_path("/");
     cookies.add(auth_cookie);

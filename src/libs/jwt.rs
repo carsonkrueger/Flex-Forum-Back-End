@@ -1,9 +1,10 @@
 use crate::routes::{RouteError, RouterResult};
 
-use chrono::{DateTime, Days, Utc};
+use chrono::{DateTime, Days, TimeDelta, Utc};
 use hash_lib::{error::HashError, hash_scheme::Hasher};
 
 pub const JWT_DATE_FORMAT: &'static str = "%Y/%m/%d_%H/%M/%S_%z";
+pub const JWT_LIFE_IN_MINUTES: i64 = 60;
 
 #[derive(Clone, Debug)]
 pub struct JWT {
@@ -15,7 +16,9 @@ pub struct JWT {
 #[allow(unused)]
 impl JWT {
     pub fn new<H: Hasher>(id: i64, key: &str, hasher: &H) -> RouterResult<JWT> {
-        let expires = Utc::now().checked_add_days(Days::new(1)).unwrap();
+        let expires = Utc::now()
+            .checked_add_signed(TimeDelta::minutes(JWT_LIFE_IN_MINUTES))
+            .unwrap();
         // expires.with_timezone(TimeZone:)
 
         let mut jwt = JWT {
