@@ -17,7 +17,7 @@ async fn main() {
 
     let router = routes::create_routes(pool);
 
-    let addr = "0.0.0.0:3000";
+    let addr = "0.0.0.0:3001";
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect(&format!("Could not listen at {}", addr));

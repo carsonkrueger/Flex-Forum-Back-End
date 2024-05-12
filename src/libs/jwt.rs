@@ -1,10 +1,11 @@
 use crate::routes::{RouteError, RouterResult};
 
-use chrono::{DateTime, Days, TimeDelta, Utc};
-use hash_lib::{error::HashError, hash_scheme::Hasher};
+use chrono::{DateTime, TimeDelta, Utc};
+use hash_lib::{error::HashError, hash_scheme::Hasher, hashers::argon2_v02::Argon2V02};
 
 pub const JWT_DATE_FORMAT: &'static str = "%Y/%m/%d_%H/%M/%S_%z";
 pub const JWT_LIFE_IN_MINUTES: i64 = 60;
+pub const JWT_HASH_SCHEME: Argon2V02 = Argon2V02;
 
 #[derive(Clone, Debug)]
 pub struct JWT {
@@ -19,15 +20,14 @@ impl JWT {
         let expires = Utc::now()
             .checked_add_signed(TimeDelta::minutes(JWT_LIFE_IN_MINUTES))
             .unwrap();
-        // expires.with_timezone(TimeZone:)
 
         let mut jwt = JWT {
             id,
             expires,
             signature: None,
         };
-
         jwt.sign(key, hasher)?;
+
         Ok(jwt)
     }
     pub fn sign<H: Hasher>(&mut self, salt: &str, hasher: &H) -> RouterResult<()> {

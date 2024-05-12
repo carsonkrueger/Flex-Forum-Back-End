@@ -1,7 +1,10 @@
 use serde::{self, Deserialize, Serialize};
 use sqlb::SqlxBindable;
 
-use crate::{error::HashResult, schemes::argon2_v01::Argon2V01};
+use crate::{
+    error::HashResult,
+    hashers::{argon2_v01::Argon2V01, argon2_v02::Argon2V02},
+};
 
 #[derive(sqlx::Type, Debug, Serialize, Deserialize)]
 #[sqlx(type_name = "hash_scheme")]
@@ -9,12 +12,16 @@ pub enum HashScheme {
     #[sqlx(rename = "argon2_v01")]
     #[serde(rename(serialize = "argon2_v01", deserialize = "argon2_v01"))]
     Argon2V01,
+    #[sqlx(rename = "argon2_v02")]
+    #[serde(rename(serialize = "argon2_v02", deserialize = "argon2_v02"))]
+    Argon2V02,
 }
 
 impl HashScheme {
-    pub fn hasher(&self) -> impl Hasher {
+    pub fn hasher(&self) -> Box<dyn Hasher> {
         match self {
-            HashScheme::Argon2V01 => Argon2V01,
+            HashScheme::Argon2V01 => Box::new(Argon2V01),
+            HashScheme::Argon2V02 => Box::new(Argon2V02),
         }
     }
 }

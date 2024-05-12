@@ -8,11 +8,13 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use hash_lib::schemes::argon2_v01::Argon2V01;
 use once_cell::sync::Lazy;
 use tower_cookies::{Cookie, Cookies};
 
-use crate::libs::{ctx::Ctx, jwt::JWT};
+use crate::libs::{
+    ctx::Ctx,
+    jwt::{JWT, JWT_HASH_SCHEME},
+};
 use crate::routes::{RouteError, RouterResult};
 
 pub const AUTH_TOKEN: &'static str = "auth_token";
@@ -28,7 +30,7 @@ pub async fn validate_auth(
     req: Request<Body>,
     next: Next,
 ) -> RouterResult<Response> {
-    ctx?.jwt().validate_token(&JWT_SECRET, &Argon2V01)?;
+    ctx?.jwt().validate_token(&JWT_SECRET, &JWT_HASH_SCHEME)?;
     Ok(next.run(req).await)
 }
 

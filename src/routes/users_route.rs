@@ -1,9 +1,12 @@
 use super::NestedRoute;
 use super::RouterResult;
 use crate::libs::ctx::Ctx;
+use crate::models::base;
 use crate::models::user_model;
 use crate::models::user_model::UserModel;
 use axum::extract::Path;
+use axum::http::StatusCode;
+use axum::routing::delete;
 use axum::routing::get;
 use axum::Router;
 use axum::{extract::State, Json};
@@ -20,6 +23,7 @@ impl NestedRoute<PgPool> for UserRoute {
         Router::new()
             .route("/:username", get(get_user))
             .route("/list/:username", get(list_users))
+            .route("/delete/:id", delete(delete_user))
     }
 }
 
@@ -48,4 +52,18 @@ pub async fn list_users(
     let users =
         user_model::list_by_username::<UserModel, ReadUserModel>(2, 0, &username, &pool).await?;
     Ok(Json(users))
+}
+
+pub async fn delete_user(
+    ctx: Ctx,
+    Path(id): Path<i64>,
+    State(pool): State<PgPool>,
+) -> RouterResult<StatusCode> {
+    if ctx.jwt().id() != &id {
+        return Ok(StatusCode::FORBIDDEN);
+    }
+
+    base::delete::<UserModel>(id, &pool).await?;
+
+    Ok(StatusCode::ACCEPTED)
 }

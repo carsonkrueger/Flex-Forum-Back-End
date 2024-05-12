@@ -4,6 +4,7 @@ pub type HashResult<T> = Result<T, HashError>;
 pub enum HashError {
     Argon2Error(argon2::password_hash::Error),
     InvalidLength,
+    MacError,
 }
 
 impl From<argon2::password_hash::Error> for HashError {
@@ -15,5 +16,11 @@ impl From<argon2::password_hash::Error> for HashError {
 impl From<sha2::digest::InvalidLength> for HashError {
     fn from(_value: sha2::digest::InvalidLength) -> Self {
         Self::InvalidLength
+    }
+}
+
+impl From<hmac::digest::MacError> for HashError {
+    fn from(_value: hmac::digest::MacError) -> Self {
+        Self::MacError
     }
 }
