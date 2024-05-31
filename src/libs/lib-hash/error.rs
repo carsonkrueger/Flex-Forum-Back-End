@@ -5,6 +5,7 @@ pub enum HashError {
     Argon2Error(argon2::password_hash::Error),
     InvalidLength,
     MacError,
+    VerificationFail,
 }
 
 impl From<argon2::password_hash::Error> for HashError {

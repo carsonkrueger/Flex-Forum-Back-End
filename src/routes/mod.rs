@@ -1,6 +1,4 @@
-use self::{
-    hello_world::HelloWorldRoute, login_signup_route::LoginSignupRoute, users_route::UserRoute,
-};
+use self::{auth_route::LoginSignupRoute, hello_world::HelloWorldRoute, users_route::UserRoute};
 use crate::{
     middleware::{
         auth_mw::{ctx_resolver, validate_auth},
@@ -19,8 +17,8 @@ use serde::Serialize;
 use sqlx::PgPool;
 use tower_cookies::CookieManagerLayer;
 
+mod auth_route;
 mod hello_world;
-mod login_signup_route;
 mod users_route;
 
 pub type RouterResult<T> = std::result::Result<T, RouteError>;
@@ -86,8 +84,11 @@ impl From<crate::models::ModelError> for RouteError {
 }
 
 impl From<hash_lib::error::HashError> for RouteError {
-    fn from(_value: hash_lib::error::HashError) -> Self {
-        RouteError::HashError
+    fn from(value: hash_lib::error::HashError) -> Self {
+        match value {
+            hash_lib::error::HashError::VerificationFail => RouteError::InvalidAuth,
+            _ => RouteError::HashError,
+        }
     }
 }
 

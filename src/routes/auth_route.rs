@@ -52,11 +52,14 @@ pub struct SignUpModel {
 
 pub async fn sign_up(
     State(pool): State<PgPool>,
-    Json(body): Json<SignUpModel>,
+    Json(mut body): Json<SignUpModel>,
 ) -> impl IntoResponse {
     if let Err(e) = body.validate() {
         return Err(RouteError::Validation(e.to_string()));
     }
+
+    body.username = body.username.trim().to_lowercase();
+    body.password = body.password.trim().to_string();
 
     let taken_str = username_or_email_exists(&body.username, &body.email, &pool).await?;
     if let Some(taken) = taken_str {
@@ -83,10 +86,10 @@ pub async fn sign_up(
 
 #[derive(Deserialize, Validate)]
 pub struct LoginModel {
-    #[validate(length(min = 1, max = 32, message = "Invalid username length"))]
+    #[validate(length(min = 5, max = 32, message = "Invalid username length"))]
     #[validate(regex(path = "*RE_USERNAME"))]
     pub username: String,
-    #[validate(length(min = 1, max = 32, message = "Invalid password length"))]
+    #[validate(length(min = 8, max = 32, message = "Invalid password length"))]
     pub password: String,
 }
 
@@ -102,9 +105,12 @@ pub struct HashModel {
 pub async fn log_in(
     State(pool): State<PgPool>,
     cookies: Cookies,
-    Json(body): Json<LoginModel>,
+    Json(mut body): Json<LoginModel>,
 ) -> RouterResult<Json<i64>> {
     validate_struct(&body)?;
+
+    body.username = body.username.trim().to_lowercase();
+    body.password = body.password.trim().to_string();
 
     let option_hash =
         models::user_model::get_one_by_username::<UserModel, HashModel>(&body.username, &pool)

@@ -4,7 +4,7 @@ use argon2::{
 };
 
 use crate::{
-    error::HashResult,
+    error::{HashError, HashResult},
     hash_scheme::{HashScheme, Hasher},
 };
 
@@ -45,7 +45,9 @@ impl Hasher for Argon2V01 {
     ) -> HashResult<()> {
         let mut pwd_hash = PasswordHash::new(hash_str)?;
         pwd_hash.salt = Some(Salt::from_b64(salt_str)?);
-        Self::argon2_v01().verify_password(password.as_bytes(), &pwd_hash)?;
+        Self::argon2_v01()
+            .verify_password(password.as_bytes(), &pwd_hash)
+            .or(Err(HashError::VerificationFail))?;
         Ok(())
     }
 }

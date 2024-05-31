@@ -1,6 +1,7 @@
 use dotenvy::dotenv;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, time::Duration};
+use tower_http::cors::{Any, CorsLayer};
 
 mod libs;
 mod middleware;
@@ -15,7 +16,11 @@ async fn main() {
         .await
         .expect("Could not run migrations");
 
-    let router = routes::create_routes(pool);
+    let cors = CorsLayer::new()
+        .allow_methods(Any)
+        .allow_origin(Any)
+        .allow_headers(Any);
+    let router = routes::create_routes(pool).layer(cors);
 
     let addr = "0.0.0.0:3001";
     let listener = tokio::net::TcpListener::bind(addr)
