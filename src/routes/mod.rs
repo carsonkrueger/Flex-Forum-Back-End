@@ -13,11 +13,13 @@ use axum::{
     response::IntoResponse,
     Router,
 };
+use content_route::ContentRoute;
 use serde::Serialize;
 use sqlx::PgPool;
 use tower_cookies::CookieManagerLayer;
 
 mod auth_route;
+mod content_route;
 mod hello_world;
 mod users_route;
 
@@ -47,6 +49,7 @@ pub fn create_routes(pool: PgPool) -> Router {
     Router::new()
         .nest(HelloWorldRoute::PATH, HelloWorldRoute::router())
         .nest(UserRoute::PATH, UserRoute::router())
+        .nest(ContentRoute::PATH, ContentRoute::router())
         .layer(from_fn(validate_auth))
         .nest(LoginSignupRoute::PATH, LoginSignupRoute::router())
         .layer(from_fn(ctx_resolver))
