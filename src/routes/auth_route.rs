@@ -95,7 +95,7 @@ pub struct LoginModel {
 
 #[derive(FromRow, Fields)]
 pub struct HashModel {
-    id: i64,
+    username: String,
     hash_scheme: HashScheme,
     pwd_hash: String,
     pwd_salt: String,
@@ -106,7 +106,7 @@ pub async fn log_in(
     State(pool): State<PgPool>,
     cookies: Cookies,
     Json(mut body): Json<LoginModel>,
-) -> RouterResult<Json<i64>> {
+) -> RouterResult<String> {
     validate_struct(&body)?;
 
     body.username = body.username.trim().to_lowercase();
@@ -121,7 +121,7 @@ pub async fn log_in(
     let hasher = hash_model.hash_scheme.hasher();
     hasher.verify(&body.password, &hash_model.pwd_salt, &hash_model.pwd_hash)?;
 
-    let result_jwt = JWT::new(hash_model.id, &JWT_SECRET, &JWT_HASH_SCHEME)?;
+    let result_jwt = JWT::new(hash_model.username.clone(), &JWT_SECRET, &JWT_HASH_SCHEME)?;
 
     let mut auth_cookie = Cookie::new(AUTH_TOKEN, result_jwt.to_string());
     let expires = tower_cookies::cookie::time::OffsetDateTime::now_utc()
@@ -130,5 +130,5 @@ pub async fn log_in(
     auth_cookie.set_path("/");
     cookies.add(auth_cookie);
 
-    Ok(Json(hash_model.id))
+    Ok(hash_model.username)
 }

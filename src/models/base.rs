@@ -8,14 +8,14 @@ pub trait DbBmc {
 }
 
 /// Creates a row with the table given, returning the id of the inserted row.
-pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> ModelResult<i64> {
+pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> ModelResult<String> {
     let fields = data.not_none_fields();
 
     let (id,) = sqlb::insert()
         .table(MC::TABLE)
         .data(fields)
-        .returning(&["id"])
-        .fetch_one::<_, (i64,)>(db)
+        .returning(&["username"])
+        .fetch_one::<_, (String,)>(db)
         .await?;
 
     Ok(id)
@@ -58,10 +58,10 @@ pub async fn update<MC: DbBmc, E: HasFields>(
 }
 
 // Deletes row with the given id, returning the number of rows affected.
-pub async fn delete<MC: DbBmc>(id: i64, db: &Pool<Postgres>) -> ModelResult<u64> {
+pub async fn delete<MC: DbBmc>(username: &str, db: &Pool<Postgres>) -> ModelResult<u64> {
     let rows_affected = sqlb::delete()
         .table(MC::TABLE)
-        .and_where_eq("id", id)
+        .and_where_eq("username", username)
         .exec(db)
         .await?;
 

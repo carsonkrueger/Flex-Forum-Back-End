@@ -9,20 +9,20 @@ pub const JWT_HASH_SCHEME: Argon2V02 = Argon2V02;
 
 #[derive(Clone, Debug)]
 pub struct JWT {
-    id: i64,
+    username: String,
     expires: DateTime<Utc>,
     signature: Option<String>,
 }
 
 #[allow(unused)]
 impl JWT {
-    pub fn new<H: Hasher>(id: i64, key: &str, hasher: &H) -> RouterResult<JWT> {
+    pub fn new<H: Hasher>(username: String, key: &str, hasher: &H) -> RouterResult<JWT> {
         let expires = Utc::now()
             .checked_add_signed(TimeDelta::minutes(JWT_LIFE_IN_MINUTES))
             .unwrap();
 
         let mut jwt = JWT {
-            id,
+            username,
             expires,
             signature: None,
         };
@@ -47,13 +47,13 @@ impl JWT {
             return Err(RouteError::InvalidAuth);
         }
 
-        let id = parts[0].parse::<i64>().or(Err(RouteError::InvalidAuth))?;
+        let username = parts[0].to_owned();
 
         let expires =
             chrono::DateTime::parse_from_str(&parts[1].to_string(), JWT_DATE_FORMAT)?.to_utc();
 
         let jwt = JWT {
-            id,
+            username,
             expires,
             signature: Some(parts[2].to_string()),
         };
@@ -86,8 +86,8 @@ impl JWT {
 
         Ok(())
     }
-    pub fn id(&self) -> &i64 {
-        &self.id
+    pub fn username(&self) -> &str {
+        &self.username
     }
     pub fn expires(&self) -> &DateTime<Utc> {
         &self.expires
@@ -96,7 +96,7 @@ impl JWT {
         &self.signature
     }
     fn as_pwd(&self) -> String {
-        format!("{}{}", self.id, self.expires_to_string())
+        format!("{}{}", self.username, self.expires_to_string())
     }
     fn expires_to_string(&self) -> String {
         self.expires().format(&JWT_DATE_FORMAT).to_string()
@@ -107,7 +107,7 @@ impl ToString for JWT {
     fn to_string(&self) -> String {
         format!(
             "{}.{}.{}",
-            self.id,
+            self.username,
             self.expires_to_string(),
             self.signature.clone().unwrap_or("".to_owned())
         )

@@ -27,6 +27,7 @@ pub type RouterResult<T> = std::result::Result<T, RouteError>;
 
 #[derive(Clone, Serialize, Debug)]
 pub enum RouteError {
+    Unauthorized,
     MissingAuthCookie,
     MissingJWTSignature,
     LoginFail,
@@ -36,6 +37,7 @@ pub enum RouteError {
     HashError,
     ExpiredAuthToken,
     ChronoParseError,
+    InvalidContentType(String),
     // Used to hide error from users
     Unknown,
 }
@@ -72,9 +74,9 @@ impl From<&RouteError> for StatusCode {
         use RouteError::*;
         match value {
             ExpiredAuthToken | MissingJWTSignature | InvalidAuth | MissingAuthCookie
-            | LoginFail => StatusCode::UNAUTHORIZED,
+            | LoginFail | Unauthorized => StatusCode::UNAUTHORIZED,
             AlreadyTaken(..) => StatusCode::CONFLICT,
-            Validation(..) => StatusCode::BAD_REQUEST,
+            Validation(..) | InvalidContentType(..) => StatusCode::BAD_REQUEST,
             HashError | ChronoParseError | Unknown => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -119,6 +121,8 @@ impl ToString for RouteError {
             MissingJWTSignature => format!("Missing JWT signature"),
             Validation(s) => s.to_string(),
             HashError | ChronoParseError | Unknown => format!("Unknown error"),
+            InvalidContentType(f) => format!("{}: Invalid content type", f),
+            Unauthorized => "".to_string(),
         }
     }
 }

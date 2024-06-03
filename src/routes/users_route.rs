@@ -1,9 +1,11 @@
 use super::NestedRoute;
 use super::RouterResult;
 use crate::libs::ctx::Ctx;
+use crate::middleware::auth_mw::AUTH_TOKEN;
 use crate::models::base;
 use crate::models::user_model;
 use crate::models::user_model::UserModel;
+use crate::services::auth::check_username;
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::routing::delete;
@@ -14,6 +16,8 @@ use serde::Serialize;
 use sqlb::Fields;
 use sqlx::prelude::FromRow;
 use sqlx::PgPool;
+use tower_cookies::Cookie;
+use tower_cookies::Cookies;
 
 pub struct UserRoute;
 
@@ -49,21 +53,26 @@ pub async fn list_users(
     Path(username): Path<String>,
     State(pool): State<PgPool>,
 ) -> RouterResult<Json<Vec<ReadUserModel>>> {
-    let users =
-        user_model::list_by_username::<UserModel, ReadUserModel>(2, 0, &username, &pool).await?;
+    let users = user_model::list_by_username::<UserModel, ReadUserModel>(
+        5,
+        0,
+        &username.to_lowercase(),
+        &pool,
+    )
+    .await?;
     Ok(Json(users))
 }
 
 pub async fn delete_user(
     ctx: Ctx,
-    Path(id): Path<i64>,
+    cookies: Cookies,
+    Path(username): Path<String>,
     State(pool): State<PgPool>,
-) -> RouterResult<StatusCode> {
-    if ctx.jwt().id() != &id {
-        return Ok(StatusCode::FORBIDDEN);
-    }
+) -> RouterResult<()> {
+    check_username(&username, ctx.jwt())?;
 
-    base::delete::<UserModel>(id, &pool).await?;
+    base::delete::<UserModel>(&username, &pool).await?;
+    cookies.remove(Cookie::from(AUTH_TOKEN));
 
-    Ok(StatusCode::ACCEPTED)
+    Ok(())
 }
