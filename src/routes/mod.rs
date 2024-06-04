@@ -14,7 +14,6 @@ use axum::{
     Router,
 };
 use content_route::ContentRoute;
-use serde::Serialize;
 use sqlx::PgPool;
 use tower_cookies::CookieManagerLayer;
 
@@ -25,7 +24,7 @@ mod users_route;
 
 pub type RouterResult<T> = std::result::Result<T, RouteError>;
 
-#[derive(Clone, Serialize, Debug)]
+#[derive(Debug, Clone)]
 pub enum RouteError {
     Unauthorized,
     MissingAuthCookie,
@@ -38,6 +37,7 @@ pub enum RouteError {
     ExpiredAuthToken,
     ChronoParseError,
     InvalidContentType(String),
+    IOError(String),
     // Used to hide error from users
     Unknown,
 }
@@ -77,7 +77,9 @@ impl From<&RouteError> for StatusCode {
             | LoginFail | Unauthorized => StatusCode::UNAUTHORIZED,
             AlreadyTaken(..) => StatusCode::CONFLICT,
             Validation(..) | InvalidContentType(..) => StatusCode::BAD_REQUEST,
-            HashError | ChronoParseError | Unknown => StatusCode::INTERNAL_SERVER_ERROR,
+            IOError(..) | HashError | ChronoParseError | Unknown => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
         }
     }
 }
@@ -109,6 +111,12 @@ impl From<chrono::ParseError> for RouteError {
     }
 }
 
+impl From<std::io::Error> for RouteError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IOError(value.to_string())
+    }
+}
+
 impl ToString for RouteError {
     fn to_string(&self) -> String {
         use RouteError::*;
@@ -120,7 +128,7 @@ impl ToString for RouteError {
             MissingAuthCookie => format!("Missing auth token"),
             MissingJWTSignature => format!("Missing JWT signature"),
             Validation(s) => s.to_string(),
-            HashError | ChronoParseError | Unknown => format!("Unknown error"),
+            IOError(..) | HashError | ChronoParseError | Unknown => format!("Unknown error"),
             InvalidContentType(f) => format!("{}: Invalid content type", f),
             Unauthorized => "".to_string(),
         }
