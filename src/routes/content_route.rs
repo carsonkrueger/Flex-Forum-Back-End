@@ -1,9 +1,7 @@
-use std::io::Write;
-
 use axum::{
-    body::Bytes,
+    body::{Body, Bytes},
     extract::{Path, State},
-    routing::post,
+    routing::{get, post},
     Router,
 };
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
@@ -17,14 +15,16 @@ use crate::{
     },
 };
 
-use super::{NestedRoute, RouteError, RouterResult};
+use super::{NestedRoute, RouterResult};
 
 pub struct ContentRoute;
 
 impl NestedRoute<PgPool> for ContentRoute {
     const PATH: &'static str = "/content";
     fn router() -> axum::Router<PgPool> {
-        Router::new().route("/:username", post(upload_image))
+        Router::new()
+            .route("/:username", post(upload_image))
+            .route("/:username/:post_id/:image_id", get(download))
     }
 }
 
@@ -55,7 +55,7 @@ async fn upload_image(
         validate_content_type(fd, IMAGE_CONTENT_TYPES)?;
     }
 
-    let user_dir = format!("{}/{}", CONTENT_IMAGE_PATH, username);
+    let user_dir = format!("{}/{}/{}", CONTENT_IMAGE_PATH, username, 1000,);
     std::fs::create_dir_all(user_dir.clone()).unwrap();
 
     tokio::task::spawn_blocking(move || -> RouterResult<()> {
@@ -84,16 +84,18 @@ async fn upload_image(
     Ok("file created".to_string())
 }
 
-struct DownloadPost {
-    username: String,
-    post_id: i64,
-}
-
 async fn download(
-    ctx: Ctx,
-    Path(DownloadPost { username, post_id }): Path<DownloadPost>,
-) -> RouterResult<()> {
-    let post_dir = format!("{}/{}/{}", CONTENT_IMAGE_PATH, username, post_id);
-    // let files_names = std::fs::read_dir(post_dir).unwrap().collect::<();
-    todo!()
+    _ctx: Ctx,
+    Path((username, post_id, image_id)): Path<(String, i64, String)>,
+) -> RouterResult<Body> {
+    let image_path = format!(
+        "{}/{}/{}/{}",
+        CONTENT_IMAGE_PATH, username, post_id, image_id
+    );
+
+    let file = tokio::fs::File::open(image_path).await?;
+    let stream = tokio_util::io::ReaderStream::new(file);
+    let data = Body::from_stream(stream);
+
+    Ok(data)
 }
