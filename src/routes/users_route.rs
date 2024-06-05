@@ -7,7 +7,6 @@ use crate::models::user_model;
 use crate::models::user_model::UserModel;
 use crate::services::auth::check_username;
 use axum::extract::Path;
-use axum::http::StatusCode;
 use axum::routing::delete;
 use axum::routing::get;
 use axum::Router;

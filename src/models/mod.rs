@@ -1,4 +1,5 @@
 pub mod base;
+pub mod content_model;
 pub mod user_model;
 
 pub type ModelResult<T> = std::result::Result<T, ModelError>;

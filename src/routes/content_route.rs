@@ -9,6 +9,7 @@ use sqlx::PgPool;
 
 use crate::{
     libs::ctx::Ctx,
+    models::content_model,
     services::{
         auth::check_username,
         multipart::{create_file, validate_content_type},
@@ -57,29 +58,36 @@ async fn upload_image(
 
     let user_dir = format!("{}/{}/{}", CONTENT_IMAGE_PATH, username, 1000,);
     std::fs::create_dir_all(user_dir.clone()).unwrap();
+    let mut counter = 0;
 
     tokio::task::spawn_blocking(move || -> RouterResult<()> {
-        let file_path1 = format!(
-            "{}/{}",
-            user_dir,
-            upload.image1.metadata.file_name.as_ref().unwrap()
-        );
+        let file_path1 = format!("{}/{}", user_dir, counter,);
         create_file(&upload.image1, file_path1)?;
+        counter += 1;
 
         if let Some(fd) = upload.image2 {
-            let file_path2 = format!("{}/{}", user_dir, fd.metadata.file_name.as_ref().unwrap());
+            let file_path2 = format!("{}/{}", user_dir, counter);
             create_file(&fd, file_path2)?;
+            counter += 1;
         }
 
         if let Some(fd) = upload.image3 {
-            let file_path3 = format!("{}/{}", user_dir, fd.metadata.file_name.as_ref().unwrap());
+            let file_path3 = format!("{}/{}", user_dir, counter);
             create_file(&fd, file_path3)?;
+            counter += 1;
         }
 
         Ok(())
     })
     .await
     .unwrap()?;
+
+    let post = content_model::CreatePostModel {
+        username: ctx.jwt().username().to_string(),
+        num_images: counter,
+        description: upload.description,
+    };
+    content_model::create(&pool, post).await?;
 
     Ok("file created".to_string())
 }

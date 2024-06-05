@@ -8,14 +8,14 @@ pub trait DbBmc {
 }
 
 /// Creates a row with the table given, returning the id of the inserted row.
-pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> ModelResult<String> {
+pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> ModelResult<i64> {
     let fields = data.not_none_fields();
 
     let (id,) = sqlb::insert()
         .table(MC::TABLE)
         .data(fields)
-        .returning(&["username"])
-        .fetch_one::<_, (String,)>(db)
+        .returning(&["id"])
+        .fetch_one::<_, (i64,)>(db)
         .await?;
 
     Ok(id)

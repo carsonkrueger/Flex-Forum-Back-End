@@ -40,7 +40,7 @@ pub struct CreateUserModel {
     pub hash_scheme: HashScheme,
 }
 
-pub async fn create(pool: &PgPool, user: CreateUserModel) -> ModelResult<String> {
+pub async fn create(pool: &PgPool, user: CreateUserModel) -> ModelResult<i64> {
     base::create::<UserModel, _>(user, &pool).await
 }
 

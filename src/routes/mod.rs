@@ -38,6 +38,7 @@ pub enum RouteError {
     ChronoParseError,
     InvalidContentType(String),
     IOError(String),
+    Sqlx(std::sync::Arc<sqlx::Error>),
     // Used to hide error from users
     Unknown,
 }
@@ -77,7 +78,7 @@ impl From<&RouteError> for StatusCode {
             | LoginFail | Unauthorized => StatusCode::UNAUTHORIZED,
             AlreadyTaken(..) => StatusCode::CONFLICT,
             Validation(..) | InvalidContentType(..) => StatusCode::BAD_REQUEST,
-            IOError(..) | HashError | ChronoParseError | Unknown => {
+            IOError(..) | HashError | ChronoParseError | Unknown | Sqlx(..) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
         }
@@ -117,6 +118,12 @@ impl From<std::io::Error> for RouteError {
     }
 }
 
+impl From<sqlx::Error> for RouteError {
+    fn from(value: sqlx::Error) -> Self {
+        Self::Sqlx(std::sync::Arc::new(value))
+    }
+}
+
 impl ToString for RouteError {
     fn to_string(&self) -> String {
         use RouteError::*;
@@ -128,9 +135,11 @@ impl ToString for RouteError {
             MissingAuthCookie => format!("Missing auth token"),
             MissingJWTSignature => format!("Missing JWT signature"),
             Validation(s) => s.to_string(),
-            IOError(..) | HashError | ChronoParseError | Unknown => format!("Unknown error"),
             InvalidContentType(f) => format!("{}: Invalid content type", f),
             Unauthorized => "".to_string(),
+            Sqlx(..) | IOError(..) | HashError | ChronoParseError | Unknown => {
+                format!("Unknown error")
+            }
         }
     }
 }
