@@ -1,15 +1,17 @@
 use axum::{
     body::{Body, Bytes},
     extract::{Path, State},
+    response::IntoResponse,
     routing::{get, post},
-    Router,
+    Json, Router,
 };
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
-use sqlx::PgPool;
+use serde::Deserialize;
+use sqlx::{types::chrono, PgPool};
 
 use crate::{
     libs::ctx::Ctx,
-    models::content_model,
+    models::content_model::{self, get_five, ContentModel},
     services::{
         auth::check_username,
         multipart::{create_file, validate_content_type},
@@ -26,6 +28,7 @@ impl NestedRoute<PgPool> for ContentRoute {
         Router::new()
             .route("/:username", post(upload_image))
             .route("/:username/:post_id/:image_id", get(download))
+            .route("/", get(get_post_by_time))
     }
 }
 
@@ -37,7 +40,7 @@ struct UploadImageMulipart {
     description: Option<String>,
 }
 
-const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/jpg"];
+const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg"];
 const CONTENT_IMAGE_PATH: &str = "./content/images";
 
 async fn upload_image(
@@ -56,25 +59,41 @@ async fn upload_image(
         validate_content_type(fd, IMAGE_CONTENT_TYPES)?;
     }
 
-    let user_dir = format!("{}/{}/{}", CONTENT_IMAGE_PATH, username, 1000,);
+    let mut counter = 1;
+    if let Some(_) = upload.image2 {
+        counter += 1;
+    }
+    if let Some(_) = upload.image3 {
+        counter += 1;
+    }
+
+    // let transaction = pool.begin().await?;
+    let post = content_model::CreatePostModel {
+        username: ctx.jwt().username().to_string(),
+        num_images: counter,
+        description: upload.description,
+    };
+    let post_id = content_model::create(&pool, post).await?;
+
+    let user_dir = format!("{}/{}/{}", CONTENT_IMAGE_PATH, username, post_id);
     std::fs::create_dir_all(user_dir.clone()).unwrap();
-    let mut counter = 0;
 
     tokio::task::spawn_blocking(move || -> RouterResult<()> {
-        let file_path1 = format!("{}/{}", user_dir, counter,);
-        create_file(&upload.image1, file_path1)?;
+        let mut counter = 1;
+        let file_path1 = format!("{}/{}.jpeg", user_dir, counter);
         counter += 1;
+        create_file(&upload.image1, file_path1)?;
 
         if let Some(fd) = upload.image2 {
-            let file_path2 = format!("{}/{}", user_dir, counter);
-            create_file(&fd, file_path2)?;
+            let file_path2 = format!("{}/{}.jpeg", user_dir, counter);
             counter += 1;
+            create_file(&fd, file_path2)?;
         }
 
         if let Some(fd) = upload.image3 {
-            let file_path3 = format!("{}/{}", user_dir, counter);
-            create_file(&fd, file_path3)?;
+            let file_path3 = format!("{}/{}.jpeg", user_dir, counter);
             counter += 1;
+            create_file(&fd, file_path3)?;
         }
 
         Ok(())
@@ -82,22 +101,15 @@ async fn upload_image(
     .await
     .unwrap()?;
 
-    let post = content_model::CreatePostModel {
-        username: ctx.jwt().username().to_string(),
-        num_images: counter,
-        description: upload.description,
-    };
-    content_model::create(&pool, post).await?;
-
     Ok("file created".to_string())
 }
 
 async fn download(
     _ctx: Ctx,
-    Path((username, post_id, image_id)): Path<(String, i64, String)>,
+    Path((username, post_id, image_id)): Path<(String, i64, i64)>,
 ) -> RouterResult<Body> {
     let image_path = format!(
-        "{}/{}/{}/{}",
+        "{}/{}/{}/{}.jpeg",
         CONTENT_IMAGE_PATH, username, post_id, image_id
     );
 
@@ -106,4 +118,20 @@ async fn download(
     let data = Body::from_stream(stream);
 
     Ok(data)
+}
+
+#[derive(Deserialize)]
+struct PostByTime {
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+async fn get_post_by_time(
+    State(pool): State<PgPool>,
+    Json(body): Json<PostByTime>,
+) -> RouterResult<Json<Vec<ContentModel>>> {
+    println!("{:?}", body.created_at);
+    let posts = get_five(&pool, &body.created_at).await?;
+    println!("{:?}", posts);
+    Ok(Json(posts))
+    // todo!()
 }

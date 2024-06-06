@@ -103,7 +103,7 @@ pub async fn log_in(
     State(pool): State<PgPool>,
     cookies: Cookies,
     Json(body): Json<LoginModel>,
-) -> RouterResult<Json<i64>> {
+) -> RouterResult<()> {
     validate_struct(&body)?;
 
     let option_hash =
@@ -124,5 +124,5 @@ pub async fn log_in(
     auth_cookie.set_path("/");
     cookies.add(auth_cookie);
 
-    Ok(Json(hash_model.id))
+    Ok(())
 }
