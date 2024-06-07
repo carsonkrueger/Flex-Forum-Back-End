@@ -32,7 +32,7 @@ pub async fn create(pool: &PgPool, post: CreatePostModel) -> ModelResult<i64> {
     base::create::<ContentModel, _>(post, &pool).await
 }
 
-pub async fn get_five(
+pub async fn get_five_older(
     pool: &PgPool,
     created_at: &chrono::DateTime<chrono::Utc>,
 ) -> ModelResult<Vec<ContentModel>> {
@@ -46,7 +46,7 @@ pub async fn get_five(
             "created_at",
             "deactivated_at",
         ])
-        .and_where("created_at", ">=", DateTimeUtcWrapper(created_at))
+        .and_where("created_at", "<=", DateTimeUtcWrapper(created_at))
         .limit(5)
         .fetch_all::<_, ContentModel>(pool)
         .await?;

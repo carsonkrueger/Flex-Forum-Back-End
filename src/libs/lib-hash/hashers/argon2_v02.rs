@@ -27,7 +27,6 @@ impl Hasher for Argon2V02 {
     ) -> HashResult<(crate::hash_scheme::Hash, crate::hash_scheme::Salt)> {
         let salt = SaltString::generate(&mut OsRng);
         let hash = Self::argon2_v02().hash_password(password.as_bytes(), &salt)?;
-        // .or(Err(RouteError::InvalidAuth))?;
         Ok((hash.to_string(), salt.to_string()))
     }
 

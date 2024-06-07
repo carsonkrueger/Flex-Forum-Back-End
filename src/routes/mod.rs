@@ -1,4 +1,4 @@
-use self::{auth_route::LoginSignupRoute, hello_world::HelloWorldRoute, users_route::UserRoute};
+use self::{auth_route::AuthRoute, hello_world::HelloWorldRoute, users_route::UserRoute};
 use crate::{
     middleware::{
         auth_mw::{ctx_resolver, validate_auth},
@@ -54,7 +54,7 @@ pub fn create_routes(pool: PgPool) -> Router {
         .nest(UserRoute::PATH, UserRoute::router())
         .nest(ContentRoute::PATH, ContentRoute::router())
         .layer(from_fn(validate_auth))
-        .nest(LoginSignupRoute::PATH, LoginSignupRoute::router())
+        .nest(AuthRoute::PATH, AuthRoute::router())
         .layer(from_fn(ctx_resolver))
         .layer(map_response(logger))
         .layer(CookieManagerLayer::new())

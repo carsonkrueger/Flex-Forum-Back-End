@@ -19,9 +19,9 @@ use sqlx::PgPool;
 use tower_cookies::{Cookie, Cookies};
 use validator::Validate;
 
-pub struct LoginSignupRoute;
+pub struct AuthRoute;
 
-impl NestedRoute<PgPool> for LoginSignupRoute {
+impl NestedRoute<PgPool> for AuthRoute {
     const PATH: &'static str = "/users";
     fn router() -> Router<PgPool> {
         Router::new()
@@ -79,9 +79,9 @@ pub async fn sign_up(
         hash_scheme: hasher.into(),
     };
 
-    let id = models::user_model::create(&pool, create_model).await?;
+    models::user_model::create(&pool, create_model).await?;
 
-    Ok((StatusCode::CREATED, Json(id)))
+    Ok(StatusCode::CREATED)
 }
 
 #[derive(Deserialize, Validate)]
@@ -106,7 +106,7 @@ pub async fn log_in(
     State(pool): State<PgPool>,
     cookies: Cookies,
     Json(mut body): Json<LoginModel>,
-) -> RouterResult<String> {
+) -> RouterResult<()> {
     validate_struct(&body)?;
 
     body.username = body.username.trim().to_lowercase();
@@ -130,5 +130,5 @@ pub async fn log_in(
     auth_cookie.set_path("/");
     cookies.add(auth_cookie);
 
-    Ok(hash_model.username)
+    Ok(())
 }

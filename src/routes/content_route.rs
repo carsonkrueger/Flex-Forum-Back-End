@@ -11,7 +11,7 @@ use sqlx::{types::chrono, PgPool};
 
 use crate::{
     libs::ctx::Ctx,
-    models::content_model::{self, get_five, ContentModel},
+    models::content_model::{self, get_five_older, ContentModel},
     services::{
         auth::check_username,
         multipart::{create_file, validate_content_type},
@@ -26,9 +26,9 @@ impl NestedRoute<PgPool> for ContentRoute {
     const PATH: &'static str = "/content";
     fn router() -> axum::Router<PgPool> {
         Router::new()
-            .route("/:username", post(upload_image))
-            .route("/:username/:post_id/:image_id", get(download))
-            .route("/", get(get_post_by_time))
+            .route("/images/:username", post(upload_image))
+            .route("/images/:username/:post_id/:image_id", get(download))
+            .route("/posts", get(get_post_by_time))
     }
 }
 
@@ -129,9 +129,6 @@ async fn get_post_by_time(
     State(pool): State<PgPool>,
     Json(body): Json<PostByTime>,
 ) -> RouterResult<Json<Vec<ContentModel>>> {
-    println!("{:?}", body.created_at);
-    let posts = get_five(&pool, &body.created_at).await?;
-    println!("{:?}", posts);
+    let posts = get_five_older(&pool, &body.created_at).await?;
     Ok(Json(posts))
-    // todo!()
 }
