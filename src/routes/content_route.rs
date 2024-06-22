@@ -1,7 +1,6 @@
 use axum::{
     body::{Body, Bytes},
     extract::{Path, State},
-    response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
@@ -28,7 +27,7 @@ impl NestedRoute<PgPool> for ContentRoute {
         Router::new()
             .route("/images/:username", post(upload_image))
             .route("/images/:username/:post_id/:image_id", get(download))
-            .route("/posts", get(get_post_by_time))
+            .route("/posts/:created_at", get(get_post_by_time))
     }
 }
 
@@ -127,8 +126,8 @@ struct PostByTime {
 
 async fn get_post_by_time(
     State(pool): State<PgPool>,
-    Json(body): Json<PostByTime>,
+    Path(created_at): Path<chrono::DateTime<chrono::Utc>>,
 ) -> RouterResult<Json<Vec<ContentModel>>> {
-    let posts = get_five_older(&pool, &body.created_at).await?;
+    let posts = get_five_older(&pool, &created_at).await?;
     Ok(Json(posts))
 }

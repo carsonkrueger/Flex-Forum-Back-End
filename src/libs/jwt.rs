@@ -6,6 +6,7 @@ use hash_lib::{error::HashError, hash_scheme::Hasher, hashers::argon2_v02::Argon
 pub const JWT_DATE_FORMAT: &'static str = "%Y/%m/%d_%H/%M/%S_%z";
 pub const JWT_LIFE_IN_MINUTES: i64 = 60;
 pub const JWT_HASH_SCHEME: Argon2V02 = Argon2V02;
+pub const JWT_PREFIX: &str = "$argon2id$v=19$m=1028,t=1,p=1$";
 
 #[derive(Clone, Debug)]
 pub struct JWT {
@@ -33,7 +34,9 @@ impl JWT {
     pub fn sign<H: Hasher>(&mut self, salt: &str, hasher: &H) -> RouterResult<()> {
         let pwd = self.as_pwd();
         let hash = hasher.hash_with_salt(&pwd, salt)?;
-        self.signature = Some(hash);
+        let hash_end = hash.strip_prefix(JWT_PREFIX).unwrap().to_string();
+        println!("signature end: {}", &hash_end);
+        self.signature = Some(hash_end);
         Ok(())
     }
     /// Parses auth_token string into its 3 parts separated by a '.'
@@ -52,10 +55,12 @@ impl JWT {
         let expires =
             chrono::DateTime::parse_from_str(&parts[1].to_string(), JWT_DATE_FORMAT)?.to_utc();
 
+        let signature = Some(format!("{}{}", JWT_PREFIX, parts[2]));
+
         let jwt = JWT {
             username,
             expires,
-            signature: Some(parts[2].to_string()),
+            signature,
         };
 
         Ok(jwt)
@@ -96,7 +101,8 @@ impl JWT {
         &self.signature
     }
     fn as_pwd(&self) -> String {
-        format!("{}{}", self.username, self.expires_to_string())
+        let pwd = format!("{}{}", self.username, self.expires_to_string());
+        pwd
     }
     fn expires_to_string(&self) -> String {
         self.expires().format(&JWT_DATE_FORMAT).to_string()

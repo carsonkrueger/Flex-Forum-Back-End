@@ -32,20 +32,20 @@ impl NestedRoute<PgPool> for AuthRoute {
 
 #[derive(Deserialize, Validate, Fields)]
 pub struct SignUpModel {
+    #[validate(length(min = 1, max = 32, message = "Invalid username length"))]
+    #[validate(regex(path = "*RE_USERNAME", message = "Invalid username"))]
+    pub username: String,
+    #[validate(
+        email(message = "Invalid email"),
+        length(min = 1, max = 255, message = "Invalid email length")
+    )]
+    pub email: String,
     #[validate(length(min = 1, max = 32, message = "Invalid first name length"))]
     #[validate(regex(path = "*RE_NAME"))]
     pub first_name: String,
     #[validate(length(min = 1, max = 32, message = "Invalid last name length"))]
     #[validate(regex(path = r#"*RE_NAME"#, message = "Invalid last name"))]
     pub last_name: String,
-    #[validate(
-        email(message = "Invalid email"),
-        length(min = 1, max = 255, message = "Invalid email length")
-    )]
-    pub email: String,
-    #[validate(length(min = 1, max = 32, message = "Invalid username length"))]
-    #[validate(regex(path = "*RE_USERNAME", message = "Invalid username"))]
-    pub username: String,
     #[validate(length(min = 1, max = 64, message = "Invalid password length"))]
     pub password: String,
 }
@@ -93,7 +93,7 @@ pub struct LoginModel {
     pub password: String,
 }
 
-#[derive(FromRow, Fields)]
+#[derive(FromRow, Fields, Debug)]
 pub struct HashModel {
     username: String,
     hash_scheme: HashScheme,
