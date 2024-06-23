@@ -1,4 +1,4 @@
-use sqlb::HasFields;
+use sqlb::{HasFields, SqlBuilder, SqlxBindable};
 use sqlx::{postgres::PgRow, FromRow, Pool, Postgres};
 
 use super::ModelResult;
@@ -21,6 +21,26 @@ pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> Mo
     Ok(id)
 }
 
+// pub async fn create_if_not_exists<MC: DbBmc, D: HasFields>(
+//     data: D,
+//     db: &Pool<Postgres>,
+// ) -> ModelResult<i64> {
+//     let fields = data.not_none_fields();
+
+//     let (id,) = sqlb::insert()
+//         .table(MC::TABLE)
+//         .data(fields)
+//         .returning(&["id"])
+//         .fetch_one::<_, (i64,)>(db)
+//         .await?;
+//     // let res = sqlx::query(&format!("INSERT IGNORE INTO {} RETURNING (id)", MC::TABLE))
+//     //     .bind(data)
+//     //     .fetch_one(db)
+//     //     .await?;
+
+//     Ok(id)
+// }
+
 // Gets the first row with the given id.
 pub async fn get_one<MC, E>(id: i64, db: &Pool<Postgres>) -> ModelResult<Option<E>>
 where
@@ -32,6 +52,32 @@ where
         .table(MC::TABLE)
         .columns(E::field_names())
         .and_where_eq("id", id)
+        .limit(1)
+        .fetch_optional(db)
+        .await?;
+
+    Ok(entity)
+}
+
+pub async fn get_one_with_both<MC, E, K1, K2>(
+    column_1: &str,
+    key_1: K1,
+    column_2: &str,
+    key_2: K2,
+    db: &Pool<Postgres>,
+) -> ModelResult<Option<E>>
+where
+    MC: DbBmc,
+    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    E: HasFields,
+    K1: SqlxBindable + Send + Sync,
+    K2: SqlxBindable + Send + Sync,
+{
+    let entity = sqlb::select()
+        .table(MC::TABLE)
+        .columns(E::field_names())
+        .and_where_eq(column_1, key_1)
+        .and_where_eq(column_2, key_2)
         .limit(1)
         .fetch_optional(db)
         .await?;
@@ -58,10 +104,36 @@ pub async fn update<MC: DbBmc, E: HasFields>(
 }
 
 // Deletes row with the given id, returning the number of rows affected.
-pub async fn delete<MC: DbBmc>(username: &str, db: &Pool<Postgres>) -> ModelResult<u64> {
+pub async fn delete<MC: DbBmc, T: SqlxBindable + Send + Sync>(
+    column: &str,
+    key: T,
+    db: &Pool<Postgres>,
+) -> ModelResult<u64> {
     let rows_affected = sqlb::delete()
         .table(MC::TABLE)
-        .and_where_eq("username", username)
+        .and_where_eq(column, key)
+        .exec(db)
+        .await?;
+
+    Ok(rows_affected)
+}
+
+// Deletes row with the given id, returning the number of rows affected.
+pub async fn delete_with_both<MC: DbBmc, K, K2>(
+    column: &str,
+    key: K,
+    column_2: &str,
+    key_2: K2,
+    db: &Pool<Postgres>,
+) -> ModelResult<u64>
+where
+    K: SqlxBindable + Send + Sync,
+    K2: SqlxBindable + Send + Sync,
+{
+    let rows_affected = sqlb::delete()
+        .table(MC::TABLE)
+        .and_where_eq(column, key)
+        .and_where_eq(column_2, key_2)
         .exec(db)
         .await?;
 
@@ -94,4 +166,23 @@ where
         .await?;
 
     Ok(entity)
+}
+
+pub async fn count_where<MC: DbBmc>(
+    db: &Pool<Postgres>,
+    column: &str,
+    operator: &str,
+    value: &str,
+) -> ModelResult<i64> {
+    let count = sqlx::query_scalar::<_, i64>(&format!(
+        "SELECT COUNT(id) FROM {} WHERE {} {} $1",
+        MC::TABLE,
+        column,
+        operator,
+    ))
+    .bind(value)
+    .fetch_one(db)
+    .await?;
+    // Ok(count)
+    Ok(count)
 }

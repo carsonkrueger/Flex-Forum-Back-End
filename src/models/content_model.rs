@@ -7,7 +7,7 @@ use super::{
     ModelResult,
 };
 
-#[derive(Deserialize, Serialize, FromRow, Debug)]
+#[derive(Deserialize, Serialize, FromRow, Debug, Clone)]
 pub struct ContentModel {
     pub id: i64,
     pub username: String,
@@ -32,7 +32,7 @@ pub async fn create(pool: &PgPool, post: CreatePostModel) -> ModelResult<i64> {
     base::create::<ContentModel, _>(post, &pool).await
 }
 
-pub async fn get_five_older(
+pub async fn get_three_older(
     pool: &PgPool,
     created_at: &chrono::DateTime<chrono::Utc>,
 ) -> ModelResult<Vec<ContentModel>> {
@@ -47,7 +47,8 @@ pub async fn get_five_older(
             "deactivated_at",
         ])
         .and_where("created_at", "<=", DateTimeUtcWrapper(created_at))
-        .limit(5)
+        .order_by("!created_at")
+        .limit(3)
         .fetch_all::<_, ContentModel>(pool)
         .await?;
     Ok(row)

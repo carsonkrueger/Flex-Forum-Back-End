@@ -1,16 +1,19 @@
 use axum::{
     body::{Body, Bytes},
     extract::{Path, State},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{types::chrono, PgPool};
 
 use crate::{
     libs::ctx::Ctx,
-    models::content_model::{self, get_five_older, ContentModel},
+    models::{
+        content_model::{self, get_three_older, ContentModel},
+        likes_model::{get_num_likes, is_liked, LikePost},
+    },
     services::{
         auth::check_username,
         multipart::{create_file, validate_content_type},
@@ -28,6 +31,8 @@ impl NestedRoute<PgPool> for ContentRoute {
             .route("/images/:username", post(upload_image))
             .route("/images/:username/:post_id/:image_id", get(download))
             .route("/posts/:created_at", get(get_post_by_time))
+            .route("/like/:post_id", post(like_post))
+            .route("/like/:post_id", delete(unlike_post))
     }
 }
 
@@ -119,15 +124,63 @@ async fn download(
     Ok(data)
 }
 
-#[derive(Deserialize)]
-struct PostByTime {
-    pub created_at: chrono::DateTime<chrono::Utc>,
+#[derive(Serialize)]
+struct PostCard {
+    #[serde(flatten)]
+    content_model: ContentModel,
+    num_likes: usize,
+    is_liked: bool,
 }
 
 async fn get_post_by_time(
+    ctx: Ctx,
     State(pool): State<PgPool>,
     Path(created_at): Path<chrono::DateTime<chrono::Utc>>,
-) -> RouterResult<Json<Vec<ContentModel>>> {
-    let posts = get_five_older(&pool, &created_at).await?;
-    Ok(Json(posts))
+) -> RouterResult<Json<Vec<PostCard>>> {
+    let posts = get_three_older(&pool, &created_at).await?;
+    let mut post_cards: Vec<PostCard> = Vec::with_capacity(3);
+
+    for i in 0..posts.len() {
+        let post_id = posts[i].id;
+        let num_likes = get_num_likes(&pool, post_id).await?;
+        let like = LikePost {
+            post_id,
+            username: ctx.jwt().username().to_string(),
+        };
+        let is_liked = is_liked(&pool, like).await?;
+        let card = PostCard {
+            content_model: posts[i].clone(),
+            is_liked,
+            num_likes,
+        };
+        post_cards.push(card);
+    }
+
+    Ok(Json(post_cards))
+}
+
+async fn like_post(
+    ctx: Ctx,
+    State(pool): State<PgPool>,
+    Path(post_id): Path<i64>,
+) -> RouterResult<()> {
+    let like: LikePost = LikePost {
+        post_id,
+        username: ctx.jwt().username().to_string(),
+    };
+    super::models::likes_model::create(&pool, like).await?;
+    Ok(())
+}
+
+async fn unlike_post(
+    ctx: Ctx,
+    State(pool): State<PgPool>,
+    Path(post_id): Path<i64>,
+) -> RouterResult<()> {
+    let like: LikePost = LikePost {
+        post_id,
+        username: ctx.jwt().username().to_string(),
+    };
+    super::models::likes_model::delete(&pool, like).await?;
+    Ok(())
 }

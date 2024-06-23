@@ -70,7 +70,7 @@ pub async fn delete_user(
 ) -> RouterResult<()> {
     check_username(&username, ctx.jwt())?;
 
-    base::delete::<UserModel>(&username, &pool).await?;
+    base::delete::<UserModel, &str>("username", &username, &pool).await?;
     cookies.remove(Cookie::from(AUTH_TOKEN));
 
     Ok(())
