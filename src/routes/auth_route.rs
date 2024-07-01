@@ -4,7 +4,7 @@ use crate::libs::jwt::{JWT, JWT_HASH_SCHEME, JWT_LIFE_IN_MINUTES};
 use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
 use crate::middleware::auth_mw::{AUTH_TOKEN, JWT_SECRET};
 use crate::models::user_model::{username_or_email_exists, CreateUserModel, UserModel};
-use crate::models::{self};
+use crate::AppState;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -15,15 +15,14 @@ use hash_lib::hashers::argon2_v01::Argon2V01;
 use serde::Deserialize;
 use sqlb::Fields;
 use sqlx::prelude::FromRow;
-use sqlx::PgPool;
 use tower_cookies::{Cookie, Cookies};
 use validator::Validate;
 
 pub struct AuthRoute;
 
-impl NestedRoute<PgPool> for AuthRoute {
+impl NestedRoute<AppState> for AuthRoute {
     const PATH: &'static str = "/users";
-    fn router() -> Router<PgPool> {
+    fn router() -> Router<AppState> {
         Router::new()
             .route("/signup", post(sign_up))
             .route("/login", post(log_in))
@@ -51,7 +50,7 @@ pub struct SignUpModel {
 }
 
 pub async fn sign_up(
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
     Json(mut body): Json<SignUpModel>,
 ) -> impl IntoResponse {
     if let Err(e) = body.validate() {
@@ -61,7 +60,7 @@ pub async fn sign_up(
     body.username = body.username.trim().to_lowercase();
     body.password = body.password.trim().to_string();
 
-    let taken_str = username_or_email_exists(&body.username, &body.email, &pool).await?;
+    let taken_str = username_or_email_exists(&body.username, &body.email, &s.pool).await?;
     if let Some(taken) = taken_str {
         return Err(RouteError::AlreadyTaken(taken));
     }
@@ -79,7 +78,7 @@ pub async fn sign_up(
         hash_scheme: hasher.into(),
     };
 
-    models::user_model::create(&pool, create_model).await?;
+    super::models::base::create::<UserModel, _>(create_model, &s.pool).await?;
 
     Ok(StatusCode::CREATED)
 }
@@ -103,7 +102,7 @@ pub struct HashModel {
 
 /// logs user in with username & password
 pub async fn log_in(
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
     cookies: Cookies,
     Json(mut body): Json<LoginModel>,
 ) -> RouterResult<()> {
@@ -112,9 +111,12 @@ pub async fn log_in(
     body.username = body.username.trim().to_lowercase();
     body.password = body.password.trim().to_string();
 
-    let option_hash =
-        models::user_model::get_one_by_username::<UserModel, HashModel>(&body.username, &pool)
-            .await?;
+    let option_hash = super::models::base::get_one::<UserModel, HashModel, _>(
+        "username",
+        &body.username,
+        &s.pool,
+    )
+    .await?;
 
     let hash_model = option_hash.ok_or(RouteError::LoginFail)?;
 

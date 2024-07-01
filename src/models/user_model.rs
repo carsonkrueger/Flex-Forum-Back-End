@@ -40,10 +40,6 @@ pub struct CreateUserModel {
     pub hash_scheme: HashScheme,
 }
 
-pub async fn create(pool: &PgPool, user: CreateUserModel) -> ModelResult<i64> {
-    base::create::<UserModel, _>(user, &pool).await
-}
-
 #[derive(Serialize, Validate, FromRow)]
 pub struct ReadUserModel {
     pub first_name: String,
@@ -72,23 +68,6 @@ pub async fn username_or_email_exists(
     }
 
     Ok(None)
-}
-
-pub async fn get_one_by_username<MC, E>(username: &str, db: &PgPool) -> ModelResult<Option<E>>
-where
-    MC: DbBmc,
-    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
-    E: HasFields,
-{
-    let entity = sqlb::select()
-        .table(MC::TABLE)
-        .columns(E::field_names())
-        .and_where_eq("username", username)
-        .limit(1)
-        .fetch_optional(db)
-        .await?;
-
-    Ok(entity)
 }
 
 const MAX_LIMIT: i64 = 32;

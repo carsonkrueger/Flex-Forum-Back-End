@@ -42,16 +42,17 @@ pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> Mo
 // }
 
 // Gets the first row with the given id.
-pub async fn get_one<MC, E>(id: i64, db: &Pool<Postgres>) -> ModelResult<Option<E>>
+pub async fn get_one<MC, E, K>(column: &str, key: K, db: &Pool<Postgres>) -> ModelResult<Option<E>>
 where
     MC: DbBmc,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
     E: HasFields,
+    K: SqlxBindable + Send + Sync,
 {
     let entity = sqlb::select()
         .table(MC::TABLE)
         .columns(E::field_names())
-        .and_where_eq("id", id)
+        .and_where_eq(column, key)
         .limit(1)
         .fetch_optional(db)
         .await?;

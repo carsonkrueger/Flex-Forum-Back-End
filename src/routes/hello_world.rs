@@ -1,12 +1,13 @@
+use crate::AppState;
+
 use super::NestedRoute;
 use axum::{routing::get, Router};
-use sqlx::PgPool;
 
 pub struct HelloWorldRoute;
 
-impl NestedRoute<PgPool> for HelloWorldRoute {
+impl<'a> NestedRoute<AppState> for HelloWorldRoute {
     const PATH: &'static str = "/helloworld";
-    fn router() -> axum::Router<PgPool> {
+    fn router() -> axum::Router<AppState> {
         Router::new().route("/", get(hello_world))
     }
 }

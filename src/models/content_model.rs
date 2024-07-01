@@ -28,10 +28,6 @@ pub struct CreatePostModel {
     pub description: Option<String>,
 }
 
-pub async fn create(pool: &PgPool, post: CreatePostModel) -> ModelResult<i64> {
-    base::create::<ContentModel, _>(post, &pool).await
-}
-
 pub async fn get_three_older(
     pool: &PgPool,
     created_at: &chrono::DateTime<chrono::Utc>,

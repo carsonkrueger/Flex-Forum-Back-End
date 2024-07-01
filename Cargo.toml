@@ -24,3 +24,5 @@ serde_with = "3.8.1"
 tower-http = { version = "0.5.2", features = ["cors"] }
 axum_typed_multipart = "0.11.1"
 tokio-util = { version = "0.7.11", features = ["io"] }
+aws-sdk-s3 = "1.38.0"
+aws-config = { version = "1.5.3", features = ["behavior-version-latest"] }

@@ -4,7 +4,7 @@ use crate::{
         auth_mw::{ctx_resolver, validate_auth},
         logger_mw::logger,
     },
-    models,
+    models, AppState,
 };
 use axum::{
     body::Body,
@@ -48,7 +48,7 @@ pub trait NestedRoute<S> {
     fn router() -> Router<S>;
 }
 
-pub fn create_routes(pool: PgPool) -> Router {
+pub fn create_routes(app_state: AppState) -> Router {
     Router::new()
         .nest(HelloWorldRoute::PATH, HelloWorldRoute::router())
         .nest(UserRoute::PATH, UserRoute::router())
@@ -58,7 +58,7 @@ pub fn create_routes(pool: PgPool) -> Router {
         .layer(from_fn(ctx_resolver))
         .layer(map_response(logger))
         .layer(CookieManagerLayer::new())
-        .with_state(pool)
+        .with_state(app_state)
 }
 
 impl IntoResponse for RouteError {

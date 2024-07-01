@@ -5,28 +5,29 @@ use axum::{
     Json, Router,
 };
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
-use serde::{Deserialize, Serialize};
-use sqlx::{types::chrono, PgPool};
+use serde::Serialize;
+use sqlx::types::chrono;
 
 use crate::{
     libs::ctx::Ctx,
     models::{
         content_model::{self, get_three_older, ContentModel},
-        likes_model::{get_num_likes, is_liked, LikePost},
+        likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
     },
     services::{
         auth::check_username,
         multipart::{create_file, validate_content_type},
     },
+    AppState,
 };
 
 use super::{NestedRoute, RouterResult};
 
 pub struct ContentRoute;
 
-impl NestedRoute<PgPool> for ContentRoute {
+impl NestedRoute<AppState> for ContentRoute {
     const PATH: &'static str = "/content";
-    fn router() -> axum::Router<PgPool> {
+    fn router() -> axum::Router<AppState> {
         Router::new()
             .route("/images/:username", post(upload_image))
             .route("/images/:username/:post_id/:image_id", get(download))
@@ -50,7 +51,7 @@ const CONTENT_IMAGE_PATH: &str = "./content/images";
 async fn upload_image(
     ctx: Ctx,
     Path(username): Path<String>,
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
     TypedMultipart(upload): TypedMultipart<UploadImageMulipart>,
 ) -> RouterResult<String> {
     check_username(&username, ctx.jwt())?;
@@ -77,7 +78,7 @@ async fn upload_image(
         num_images: counter,
         description: upload.description,
     };
-    let post_id = content_model::create(&pool, post).await?;
+    let post_id = super::models::base::create::<ContentModel, _>(post, &s.pool).await?;
 
     let user_dir = format!("{}/{}/{}", CONTENT_IMAGE_PATH, username, post_id);
     std::fs::create_dir_all(user_dir.clone()).unwrap();
@@ -134,20 +135,20 @@ struct PostCard {
 
 async fn get_post_by_time(
     ctx: Ctx,
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
     Path(created_at): Path<chrono::DateTime<chrono::Utc>>,
 ) -> RouterResult<Json<Vec<PostCard>>> {
-    let posts = get_three_older(&pool, &created_at).await?;
+    let posts = get_three_older(&s.pool, &created_at).await?;
     let mut post_cards: Vec<PostCard> = Vec::with_capacity(3);
 
     for i in 0..posts.len() {
         let post_id = posts[i].id;
-        let num_likes = get_num_likes(&pool, post_id).await?;
+        let num_likes = get_num_likes(&s.pool, post_id).await?;
         let like = LikePost {
             post_id,
             username: ctx.jwt().username().to_string(),
         };
-        let is_liked = is_liked(&pool, like).await?;
+        let is_liked = is_liked(&s.pool, like).await?;
         let card = PostCard {
             content_model: posts[i].clone(),
             is_liked,
@@ -161,26 +162,29 @@ async fn get_post_by_time(
 
 async fn like_post(
     ctx: Ctx,
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
     Path(post_id): Path<i64>,
 ) -> RouterResult<()> {
     let like: LikePost = LikePost {
         post_id,
         username: ctx.jwt().username().to_string(),
     };
-    super::models::likes_model::create(&pool, like).await?;
+    super::models::base::create::<LikesModel, LikePost>(like, &s.pool).await?;
     Ok(())
 }
 
 async fn unlike_post(
     ctx: Ctx,
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
     Path(post_id): Path<i64>,
 ) -> RouterResult<()> {
-    let like: LikePost = LikePost {
+    super::models::base::delete_with_both::<LikesModel, _, _>(
+        "post_id",
         post_id,
-        username: ctx.jwt().username().to_string(),
-    };
-    super::models::likes_model::delete(&pool, like).await?;
+        "username",
+        ctx.jwt().username(),
+        &s.pool,
+    )
+    .await?;
     Ok(())
 }

@@ -6,6 +6,7 @@ use crate::models::base;
 use crate::models::user_model;
 use crate::models::user_model::UserModel;
 use crate::services::auth::check_username;
+use crate::AppState;
 use axum::extract::Path;
 use axum::routing::delete;
 use axum::routing::get;
@@ -20,9 +21,9 @@ use tower_cookies::Cookies;
 
 pub struct UserRoute;
 
-impl NestedRoute<PgPool> for UserRoute {
+impl NestedRoute<AppState> for UserRoute {
     const PATH: &'static str = "/users";
-    fn router() -> Router<PgPool> {
+    fn router() -> Router<AppState> {
         Router::new()
             .route("/:username", get(get_user))
             .route("/list/:username", get(list_users))
@@ -40,23 +41,23 @@ pub struct ReadUserModel {
 pub async fn get_user(
     _ctx: Ctx,
     Path(username): Path<String>,
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
 ) -> RouterResult<Json<Option<ReadUserModel>>> {
     let read_user =
-        user_model::get_one_by_username::<UserModel, ReadUserModel>(&username, &pool).await?;
+        super::models::base::get_one::<UserModel, _, _>("username", &username, &s.pool).await?;
     Ok(Json(read_user))
 }
 
 pub async fn list_users(
     _ctx: Ctx,
     Path(username): Path<String>,
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
 ) -> RouterResult<Json<Vec<ReadUserModel>>> {
     let users = user_model::list_by_username::<UserModel, ReadUserModel>(
         5,
         0,
         &username.to_lowercase(),
-        &pool,
+        &s.pool,
     )
     .await?;
     Ok(Json(users))
@@ -66,11 +67,11 @@ pub async fn delete_user(
     ctx: Ctx,
     cookies: Cookies,
     Path(username): Path<String>,
-    State(pool): State<PgPool>,
+    State(s): State<AppState>,
 ) -> RouterResult<()> {
     check_username(&username, ctx.jwt())?;
 
-    base::delete::<UserModel, &str>("username", &username, &pool).await?;
+    base::delete::<UserModel, &str>("username", &username, &s.pool).await?;
     cookies.remove(Cookie::from(AUTH_TOKEN));
 
     Ok(())

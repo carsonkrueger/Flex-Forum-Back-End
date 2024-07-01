@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlb::{Fields, SqlBuilder};
+use sqlb::Fields;
 use sqlx::{prelude::FromRow, PgPool};
 
 use super::{
@@ -22,22 +22,6 @@ impl DbBmc for LikesModel {
 pub struct LikePost {
     pub post_id: i64,
     pub username: String,
-}
-
-pub async fn create(pool: &PgPool, like: LikePost) -> ModelResult<i64> {
-    base::create::<LikesModel, _>(like, &pool).await
-}
-
-pub async fn delete(pool: &PgPool, like: LikePost) -> ModelResult<()> {
-    base::delete_with_both::<LikesModel, _, _>(
-        "post_id",
-        like.post_id,
-        "username",
-        like.username,
-        &pool,
-    )
-    .await?;
-    Ok(())
 }
 
 pub async fn get_num_likes(pool: &PgPool, post_id: i64) -> ModelResult<usize> {
