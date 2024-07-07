@@ -1,4 +1,7 @@
+use aws_config::{meta::region::future::ProvideRegion, profile::credentials, Region};
+use aws_sdk_s3::config::Credentials;
 use dotenvy::dotenv;
+use routes::AppState;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, time::Duration};
 use tower_http::cors::{Any, CorsLayer};
@@ -8,12 +11,6 @@ mod middleware;
 mod models;
 mod routes;
 mod services;
-
-#[derive(Debug, Clone)]
-pub struct AppState {
-    pool: Pool<Postgres>,
-    s3_client: aws_sdk_s3::Client,
-}
 
 #[tokio::main]
 async fn main() {
@@ -59,6 +56,14 @@ async fn create_pool() -> Pool<Postgres> {
 }
 
 async fn create_s3_client() -> aws_sdk_s3::Client {
-    let config = aws_config::load_from_env().await;
+    let access_key = env::var("ACCESS_KEY_ID").expect("ACCESS_KEY_ID not found in .env");
+    let secret_access_key =
+        env::var("SECRET_ACCESS_KEY").expect("SECRET_ACCESS_KEY not found in .env");
+    let credentials = Credentials::new(access_key, secret_access_key, None, None, "FlexForum");
+    let config = aws_config::from_env()
+        .region("us-east-1")
+        .credentials_provider(credentials)
+        .load()
+        .await;
     aws_sdk_s3::Client::new(&config)
 }

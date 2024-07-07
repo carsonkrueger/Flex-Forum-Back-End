@@ -14,10 +14,7 @@ use crate::{
         content_model::{self, get_three_older, ContentModel},
         likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
     },
-    services::{
-        auth::check_username,
-        multipart::{create_file, validate_content_type},
-    },
+    services::{auth::check_username, multipart::validate_content_type, s3::s3_upload_image},
     AppState,
 };
 
@@ -79,32 +76,32 @@ async fn upload_image(
         description: upload.description,
     };
     let post_id = super::models::base::create::<ContentModel, _>(post, &s.pool).await?;
+    let mut counter = 1;
+    let username = ctx.jwt().username();
 
-    let user_dir = format!("{}/{}/{}", CONTENT_IMAGE_PATH, username, post_id);
-    std::fs::create_dir_all(user_dir.clone()).unwrap();
-
-    tokio::task::spawn_blocking(move || -> RouterResult<()> {
-        let mut counter = 1;
-        let file_path1 = format!("{}/{}.jpeg", user_dir, counter);
+    s3_upload_image(
+        &s.s3_client,
+        upload.image1.contents.clone(),
+        username,
+        post_id,
+        counter,
+    )
+    .await;
+    if let Some(img) = upload.image2 {
         counter += 1;
-        create_file(&upload.image1, file_path1)?;
-
-        if let Some(fd) = upload.image2 {
-            let file_path2 = format!("{}/{}.jpeg", user_dir, counter);
-            counter += 1;
-            create_file(&fd, file_path2)?;
-        }
-
-        if let Some(fd) = upload.image3 {
-            let file_path3 = format!("{}/{}.jpeg", user_dir, counter);
-            counter += 1;
-            create_file(&fd, file_path3)?;
-        }
-
-        Ok(())
-    })
-    .await
-    .unwrap()?;
+        s3_upload_image(
+            &s.s3_client,
+            img.contents.clone(),
+            username,
+            post_id,
+            counter,
+        )
+        .await;
+    }
+    if let Some(img) = upload.image3 {
+        counter += 1;
+        s3_upload_image(&s.s3_client, img.contents, username, post_id, counter).await;
+    }
 
     Ok("file created".to_string())
 }

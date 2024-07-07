@@ -4,7 +4,7 @@ use crate::{
         auth_mw::{ctx_resolver, validate_auth},
         logger_mw::logger,
     },
-    models, AppState,
+    models,
 };
 use axum::{
     body::Body,
@@ -14,7 +14,7 @@ use axum::{
     Router,
 };
 use content_route::ContentRoute;
-use sqlx::PgPool;
+use sqlx::{Pool, Postgres};
 use tower_cookies::CookieManagerLayer;
 
 mod auth_route;
@@ -46,6 +46,12 @@ pub enum RouteError {
 pub trait NestedRoute<S> {
     const PATH: &'static str;
     fn router() -> Router<S>;
+}
+
+#[derive(Debug, Clone)]
+pub struct AppState {
+    pub pool: Pool<Postgres>,
+    pub s3_client: aws_sdk_s3::Client,
 }
 
 pub fn create_routes(app_state: AppState) -> Router {
