@@ -1,6 +1,9 @@
 use aws_sdk_s3::{
     error::SdkError,
-    operation::put_object::{PutObjectError, PutObjectOutput, builders::},
+    operation::{
+        get_object::{GetObjectError, GetObjectOutput},
+        put_object::{PutObjectError, PutObjectOutput},
+    },
     primitives::{ByteStream, SdkBody},
     Client,
 };
@@ -14,7 +17,8 @@ pub async fn s3_upload_image(
     username: &str,
     post_id: i64,
     image_num: usize,
-) { // Result<PutObjectOutput, SdkError<PutObjectError,  Response>>
+) -> Result<PutObjectOutput, SdkError<PutObjectError>> {
+    // Result<PutObjectOutput, SdkError<PutObjectError,  Response>>
     let key = user_image_bucket_key(username, post_id, image_num);
     let sdk_body = SdkBody::from(bytes);
     let byte_stream = ByteStream::new(sdk_body);
@@ -28,7 +32,12 @@ pub async fn s3_upload_image(
     res
 }
 
-pub async fn s3_download_image(s3_client: &Client, username: &str, post_id: i64, image_num: usize) {
+pub async fn s3_download_image(
+    s3_client: &Client,
+    username: &str,
+    post_id: i64,
+    image_num: usize,
+) -> Result<GetObjectOutput, SdkError<GetObjectError>> {
     let key = user_image_bucket_key(username, post_id, image_num);
     let res = s3_client
         .get_object()
@@ -36,6 +45,7 @@ pub async fn s3_download_image(s3_client: &Client, username: &str, post_id: i64,
         .key(&key)
         .send()
         .await;
+    res
 }
 
 fn user_image_bucket_key(username: &str, post_id: i64, img_num: usize) -> String {

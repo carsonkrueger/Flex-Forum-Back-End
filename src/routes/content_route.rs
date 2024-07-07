@@ -79,7 +79,7 @@ async fn upload_image(
     let mut counter = 1;
     let username = ctx.jwt().username();
 
-    s3_upload_image(
+    let res = s3_upload_image(
         &s.s3_client,
         upload.image1.contents.clone(),
         username,
@@ -87,9 +87,10 @@ async fn upload_image(
         counter,
     )
     .await;
+
     if let Some(img) = upload.image2 {
         counter += 1;
-        s3_upload_image(
+        let res = s3_upload_image(
             &s.s3_client,
             img.contents.clone(),
             username,
@@ -98,9 +99,10 @@ async fn upload_image(
         )
         .await;
     }
+
     if let Some(img) = upload.image3 {
         counter += 1;
-        s3_upload_image(&s.s3_client, img.contents, username, post_id, counter).await;
+        let res = s3_upload_image(&s.s3_client, img.contents, username, post_id, counter).await;
     }
 
     Ok("file created".to_string())

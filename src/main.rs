@@ -1,4 +1,3 @@
-use aws_config::{meta::region::future::ProvideRegion, profile::credentials, Region};
 use aws_sdk_s3::config::Credentials;
 use dotenvy::dotenv;
 use routes::AppState;
