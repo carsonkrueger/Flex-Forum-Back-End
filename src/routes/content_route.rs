@@ -14,7 +14,11 @@ use crate::{
         content_model::{self, get_three_older, ContentModel},
         likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
     },
-    services::{auth::check_username, multipart::validate_content_type, s3::s3_upload_image},
+    services::{
+        auth::check_username,
+        multipart::validate_content_type,
+        s3::{s3_download_image, s3_upload_image},
+    },
     AppState,
 };
 
@@ -42,7 +46,7 @@ struct UploadImageMulipart {
     description: Option<String>,
 }
 
-const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg"];
+const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/jpg"];
 const CONTENT_IMAGE_PATH: &str = "./content/images";
 
 async fn upload_image(
@@ -85,7 +89,7 @@ async fn upload_image(
         username,
         post_id,
         counter,
-        "image/jpeg",
+        upload.image1.metadata.content_type.unwrap(), // content type validated abolve
     )
     .await;
 
@@ -97,7 +101,7 @@ async fn upload_image(
             username,
             post_id,
             counter,
-            "image/jpeg",
+            img.metadata.content_type.unwrap(), // content type validated abolve
         )
         .await;
     }
@@ -110,7 +114,7 @@ async fn upload_image(
             username,
             post_id,
             counter,
-            "image/jpeg",
+            img.metadata.content_type.unwrap(), // content type validated abolve
         )
         .await;
     }
@@ -119,16 +123,19 @@ async fn upload_image(
 }
 
 async fn download(
-    _ctx: Ctx,
+    ctx: Ctx,
     Path((username, post_id, image_id)): Path<(String, i64, i64)>,
+    State(s): State<AppState>,
 ) -> RouterResult<Body> {
-    let image_path = format!(
-        "{}/{}/{}/{}.jpeg",
-        CONTENT_IMAGE_PATH, username, post_id, image_id
-    );
+    let res = s3_download_image(
+        &s.s3_client,
+        ctx.jwt().username(),
+        post_id,
+        image_id as usize,
+    )
+    .await;
 
-    let file = tokio::fs::File::open(image_path).await?;
-    let stream = tokio_util::io::ReaderStream::new(file);
+    let stream = tokio_util::io::ReaderStream::new(res.unwrap().body.into_async_read());
     let data = Body::from_stream(stream);
 
     Ok(data)
