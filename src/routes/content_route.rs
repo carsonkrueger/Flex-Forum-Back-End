@@ -85,6 +85,7 @@ async fn upload_image(
         username,
         post_id,
         counter,
+        "image/jpeg",
     )
     .await;
 
@@ -96,13 +97,22 @@ async fn upload_image(
             username,
             post_id,
             counter,
+            "image/jpeg",
         )
         .await;
     }
 
     if let Some(img) = upload.image3 {
         counter += 1;
-        let res = s3_upload_image(&s.s3_client, img.contents, username, post_id, counter).await;
+        let res = s3_upload_image(
+            &s.s3_client,
+            img.contents,
+            username,
+            post_id,
+            counter,
+            "image/jpeg",
+        )
+        .await;
     }
 
     Ok("file created".to_string())

@@ -17,6 +17,7 @@ pub async fn s3_upload_image(
     username: &str,
     post_id: i64,
     image_num: usize,
+    content_type: impl Into<String>,
 ) -> Result<PutObjectOutput, SdkError<PutObjectError>> {
     // Result<PutObjectOutput, SdkError<PutObjectError,  Response>>
     let key = user_image_bucket_key(username, post_id, image_num);
@@ -27,6 +28,7 @@ pub async fn s3_upload_image(
         .bucket(IMAGE_BUCKET)
         .key(&key)
         .body(byte_stream)
+        .content_type(content_type)
         .send()
         .await;
     res
