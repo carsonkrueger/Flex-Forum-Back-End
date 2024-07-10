@@ -9,23 +9,37 @@ use aws_sdk_s3::{
 };
 use axum::body::Bytes;
 
-const IMAGE_BUCKET: &str = "flexforumimages1";
+use crate::models::content_model::PostType;
 
-pub async fn s3_upload_image(
+const IMAGE_BUCKET: &str = "flexforumimages1";
+const WORKOUT_BUCKET: &str = "flexforumworkouts1";
+
+impl From<PostType> for &str {
+    fn from(value: PostType) -> Self {
+        match value {
+            PostType::Images => IMAGE_BUCKET,
+            PostType::Workout => WORKOUT_BUCKET,
+        }
+    }
+}
+
+pub async fn s3_upload_post(
     s3_client: &Client,
     bytes: Bytes,
     username: &str,
     post_id: i64,
-    image_num: usize,
+    content_num: usize,
     content_type: impl Into<String>,
+    post_type: PostType,
 ) -> Result<PutObjectOutput, SdkError<PutObjectError>> {
     // Result<PutObjectOutput, SdkError<PutObjectError,  Response>>
-    let key = user_image_bucket_key(username, post_id, image_num);
+    let key = user_post_bucket_key(username, post_id, content_num);
+    let bucket: &str = post_type.into();
     let sdk_body = SdkBody::from(bytes);
     let byte_stream = ByteStream::new(sdk_body);
     let res = s3_client
         .put_object()
-        .bucket(IMAGE_BUCKET)
+        .bucket(bucket)
         .key(&key)
         .body(byte_stream)
         .content_type(content_type)
@@ -40,7 +54,7 @@ pub async fn s3_download_image(
     post_id: i64,
     image_num: usize,
 ) -> Result<GetObjectOutput, SdkError<GetObjectError>> {
-    let key = user_image_bucket_key(username, post_id, image_num);
+    let key = user_post_bucket_key(username, post_id, image_num);
     let res = s3_client
         .get_object()
         .bucket(IMAGE_BUCKET)
@@ -50,6 +64,6 @@ pub async fn s3_download_image(
     res
 }
 
-fn user_image_bucket_key(username: &str, post_id: i64, img_num: usize) -> String {
+fn user_post_bucket_key(username: &str, post_id: i64, img_num: usize) -> String {
     format!("{}/{}/{}", username, post_id, img_num)
 }

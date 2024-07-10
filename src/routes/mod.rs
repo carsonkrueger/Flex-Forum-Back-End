@@ -18,6 +18,7 @@ use sqlx::{Pool, Postgres};
 use tower_cookies::CookieManagerLayer;
 
 mod auth_route;
+mod bytes;
 mod content_route;
 mod hello_world;
 mod users_route;

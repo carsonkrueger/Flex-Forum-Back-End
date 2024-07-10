@@ -5,24 +5,25 @@ use axum::{
     Json, Router,
 };
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::types::chrono;
+use validator::Validate;
 
 use crate::{
     libs::ctx::Ctx,
     models::{
-        content_model::{self, get_three_older, ContentModel},
+        content_model::{self, get_three_older, ContentModel, PostType},
         likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
     },
     services::{
         auth::check_username,
         multipart::validate_content_type,
-        s3::{s3_download_image, s3_upload_image},
+        s3::{s3_download_image, s3_upload_post},
     },
     AppState,
 };
 
-use super::{NestedRoute, RouterResult};
+use super::{bytes::any_as_u8_slice, NestedRoute, RouteError, RouterResult};
 
 pub struct ContentRoute;
 
@@ -30,8 +31,9 @@ impl NestedRoute<AppState> for ContentRoute {
     const PATH: &'static str = "/content";
     fn router() -> axum::Router<AppState> {
         Router::new()
-            .route("/images/:username", post(upload_image))
+            .route("/images", post(upload_images_post))
             .route("/images/:username/:post_id/:image_id", get(download))
+            .route("/workouts", post(upload_workout_post))
             .route("/posts/:created_at", get(get_post_by_time))
             .route("/like/:post_id", post(like_post))
             .route("/like/:post_id", delete(unlike_post))
@@ -47,16 +49,12 @@ struct UploadImageMulipart {
 }
 
 const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/jpg"];
-const CONTENT_IMAGE_PATH: &str = "./content/images";
 
-async fn upload_image(
+async fn upload_images_post(
     ctx: Ctx,
-    Path(username): Path<String>,
     State(s): State<AppState>,
     TypedMultipart(upload): TypedMultipart<UploadImageMulipart>,
 ) -> RouterResult<String> {
-    check_username(&username, ctx.jwt())?;
-
     validate_content_type(&upload.image1, IMAGE_CONTENT_TYPES)?;
     if let Some(fd) = &upload.image2 {
         validate_content_type(fd, IMAGE_CONTENT_TYPES)?;
@@ -78,43 +76,47 @@ async fn upload_image(
         username: ctx.jwt().username().to_string(),
         num_images: counter,
         description: upload.description,
+        post_type: PostType::Images,
     };
     let post_id = super::models::base::create::<ContentModel, _>(post, &s.pool).await?;
     let mut counter = 1;
     let username = ctx.jwt().username();
 
-    let res = s3_upload_image(
+    let res = s3_upload_post(
         &s.s3_client,
         upload.image1.contents.clone(),
         username,
         post_id,
         counter,
         upload.image1.metadata.content_type.unwrap(), // content type validated abolve
+        PostType::Images,
     )
     .await;
 
     if let Some(img) = upload.image2 {
         counter += 1;
-        let res = s3_upload_image(
+        let res = s3_upload_post(
             &s.s3_client,
             img.contents.clone(),
             username,
             post_id,
             counter,
             img.metadata.content_type.unwrap(), // content type validated abolve
+            PostType::Images,
         )
         .await;
     }
 
     if let Some(img) = upload.image3 {
         counter += 1;
-        let res = s3_upload_image(
+        let res = s3_upload_post(
             &s.s3_client,
             img.contents,
             username,
             post_id,
             counter,
             img.metadata.content_type.unwrap(), // content type validated abolve
+            PostType::Images,
         )
         .await;
     }
@@ -123,22 +125,78 @@ async fn upload_image(
 }
 
 async fn download(
-    ctx: Ctx,
+    _ctx: Ctx,
     Path((username, post_id, image_id)): Path<(String, i64, i64)>,
     State(s): State<AppState>,
 ) -> RouterResult<Body> {
-    let res = s3_download_image(
-        &s.s3_client,
-        ctx.jwt().username(),
-        post_id,
-        image_id as usize,
-    )
-    .await;
+    let res = s3_download_image(&s.s3_client, &username, post_id, image_id as usize).await;
 
     let stream = tokio_util::io::ReaderStream::new(res.unwrap().body.into_async_read());
     let data = Body::from_stream(stream);
 
     Ok(data)
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Exercise {
+    exercise_name: String,
+    num_sets: i32,
+    num_reps: i32,
+    timer: u32,
+}
+
+#[derive(Deserialize, Serialize, Validate)]
+pub struct Workout {
+    #[validate(length(min = 1, max = 64))]
+    workout_name: String,
+    #[validate(length(min = 1, max = 20))]
+    exercises: Vec<Exercise>,
+}
+
+#[derive(Deserialize, Serialize, Validate)]
+pub struct UploadWorkout {
+    workout: Workout,
+    #[validate(length(max = 1000))]
+    description: Option<String>,
+}
+
+async fn upload_workout_post(
+    ctx: Ctx,
+    State(s): State<AppState>,
+    body: Json<UploadWorkout>,
+) -> RouterResult<()> {
+    if let Err(e) = body.validate() {
+        return Err(RouteError::Validation(e.to_string()));
+    }
+
+    if let Err(e) = body.workout.validate() {
+        return Err(RouteError::Validation(e.to_string()));
+    }
+
+    let post = content_model::CreatePostModel {
+        username: ctx.jwt().username().to_string(),
+        num_images: 0,
+        description: body.description.clone(),
+        post_type: PostType::Workout,
+    };
+
+    let post_id = super::models::base::create::<ContentModel, _>(post, &s.pool).await?;
+
+    let byte_slice = unsafe { any_as_u8_slice(&body.workout) };
+    let bytes = axum::body::Bytes::copy_from_slice(byte_slice);
+
+    s3_upload_post(
+        &s.s3_client,
+        bytes,
+        ctx.jwt().username(),
+        post_id,
+        1,
+        "application/json",
+        PostType::Workout,
+    )
+    .await;
+
+    Ok(())
 }
 
 #[derive(Serialize)]
