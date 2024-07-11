@@ -71,6 +71,8 @@ async fn upload_images_post(
         counter += 1;
     }
 
+    let mut trans = s.pool.begin().await?;
+
     // let transaction = pool.begin().await?;
     let post = content_model::CreatePostModel {
         username: ctx.jwt().username().to_string(),
@@ -78,7 +80,8 @@ async fn upload_images_post(
         description: upload.description,
         post_type: PostType::Images,
     };
-    let post_id = super::models::base::create::<ContentModel, _>(post, &s.pool).await?;
+    let post_id =
+        super::models::base::create_with_transaction::<ContentModel, _>(post, &mut trans).await?;
     let mut counter = 1;
     let username = ctx.jwt().username();
 
@@ -120,6 +123,8 @@ async fn upload_images_post(
         )
         .await;
     }
+
+    trans.commit().await?;
 
     Ok("file created".to_string())
 }

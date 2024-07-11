@@ -1,5 +1,5 @@
 use sqlb::{HasFields, SqlBuilder, SqlxBindable};
-use sqlx::{postgres::PgRow, FromRow, Pool, Postgres};
+use sqlx::{postgres::PgRow, Encode, FromRow, Pool, Postgres, Transaction};
 
 use super::ModelResult;
 
@@ -16,6 +16,22 @@ pub async fn create<MC: DbBmc, D: HasFields>(data: D, db: &Pool<Postgres>) -> Mo
         .data(fields)
         .returning(&["id"])
         .fetch_one::<_, (i64,)>(db)
+        .await?;
+
+    Ok(id)
+}
+
+pub async fn create_with_transaction<MC: DbBmc, D: HasFields>(
+    data: D,
+    db: &mut Transaction<'_, Postgres>,
+) -> ModelResult<i64> {
+    let fields = data.not_none_fields();
+
+    let (id,) = sqlb::insert()
+        .table(MC::TABLE)
+        .data(fields)
+        .returning(&["id"])
+        .fetch_one::<_, (i64,)>(&mut **db)
         .await?;
 
     Ok(id)
