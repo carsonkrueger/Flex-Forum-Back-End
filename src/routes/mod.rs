@@ -6,6 +6,10 @@ use crate::{
     },
     models,
 };
+use aws_sdk_s3::{
+    error::SdkError,
+    operation::{delete_object::DeleteObjectError, put_object::PutObjectError},
+};
 use axum::{
     body::Body,
     http::StatusCode,
@@ -42,6 +46,7 @@ pub enum RouteError {
     Sqlx(std::sync::Arc<sqlx::Error>),
     // Used to hide error from users
     Unknown,
+    AwsSdkError(String),
 }
 
 pub trait NestedRoute<S> {
@@ -85,7 +90,7 @@ impl From<&RouteError> for StatusCode {
             | LoginFail | Unauthorized => StatusCode::UNAUTHORIZED,
             AlreadyTaken(..) => StatusCode::CONFLICT,
             Validation(..) | InvalidContentType(..) => StatusCode::BAD_REQUEST,
-            IOError(..) | HashError | ChronoParseError | Unknown | Sqlx(..) => {
+            AwsSdkError(..) | IOError(..) | HashError | ChronoParseError | Unknown | Sqlx(..) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
         }
@@ -131,6 +136,18 @@ impl From<sqlx::Error> for RouteError {
     }
 }
 
+impl From<SdkError<PutObjectError>> for RouteError {
+    fn from(value: SdkError<PutObjectError>) -> Self {
+        Self::AwsSdkError(value.to_string())
+    }
+}
+
+impl From<SdkError<DeleteObjectError>> for RouteError {
+    fn from(value: SdkError<DeleteObjectError>) -> Self {
+        Self::AwsSdkError(value.to_string())
+    }
+}
+
 impl ToString for RouteError {
     fn to_string(&self) -> String {
         use RouteError::*;
@@ -144,8 +161,8 @@ impl ToString for RouteError {
             Validation(s) => s.to_string(),
             InvalidContentType(f) => format!("{}: Invalid content type", f),
             Unauthorized => "".to_string(),
-            Sqlx(..) | IOError(..) | HashError | ChronoParseError | Unknown => {
-                format!("Unknown error")
+            AwsSdkError(..) | Sqlx(..) | IOError(..) | HashError | ChronoParseError | Unknown => {
+                format!("Internal error")
             }
         }
     }

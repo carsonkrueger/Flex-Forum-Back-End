@@ -1,6 +1,7 @@
 use axum::{
     body::{Body, Bytes},
     extract::{Path, State},
+    http::StatusCode,
     routing::{delete, get, post},
     Json, Router,
 };
@@ -16,9 +17,8 @@ use crate::{
         likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
     },
     services::{
-        auth::check_username,
         multipart::validate_content_type,
-        s3::{s3_download_image, s3_upload_post},
+        s3::{s3_delete, s3_download, s3_upload},
     },
     AppState,
 };
@@ -49,12 +49,13 @@ struct UploadImageMulipart {
 }
 
 const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/jpg"];
+const JSON_CONTENT_TYPE: &'static str = "application/json";
 
 async fn upload_images_post(
     ctx: Ctx,
     State(s): State<AppState>,
     TypedMultipart(upload): TypedMultipart<UploadImageMulipart>,
-) -> RouterResult<String> {
+) -> RouterResult<StatusCode> {
     validate_content_type(&upload.image1, IMAGE_CONTENT_TYPES)?;
     if let Some(fd) = &upload.image2 {
         validate_content_type(fd, IMAGE_CONTENT_TYPES)?;
@@ -71,7 +72,7 @@ async fn upload_images_post(
         counter += 1;
     }
 
-    let mut trans = s.pool.begin().await?;
+    let mut transaction = s.pool.begin().await?;
 
     // let transaction = pool.begin().await?;
     let post = content_model::CreatePostModel {
@@ -81,11 +82,12 @@ async fn upload_images_post(
         post_type: PostType::Images,
     };
     let post_id =
-        super::models::base::create_with_transaction::<ContentModel, _>(post, &mut trans).await?;
+        super::models::base::create_with_transaction::<ContentModel, _>(post, &mut transaction)
+            .await?;
     let mut counter = 1;
     let username = ctx.jwt().username();
 
-    let res = s3_upload_post(
+    s3_upload(
         &s.s3_client,
         upload.image1.contents.clone(),
         username,
@@ -94,11 +96,11 @@ async fn upload_images_post(
         upload.image1.metadata.content_type.unwrap(), // content type validated abolve
         PostType::Images,
     )
-    .await;
+    .await?;
 
     if let Some(img) = upload.image2 {
         counter += 1;
-        let res = s3_upload_post(
+        let res = s3_upload(
             &s.s3_client,
             img.contents.clone(),
             username,
@@ -108,11 +110,17 @@ async fn upload_images_post(
             PostType::Images,
         )
         .await;
+
+        if let Err(_) = res {
+            s3_delete(&s.s3_client, username, post_id, counter - 1).await?;
+        }
+
+        res?;
     }
 
     if let Some(img) = upload.image3 {
         counter += 1;
-        let res = s3_upload_post(
+        let res = s3_upload(
             &s.s3_client,
             img.contents,
             username,
@@ -122,11 +130,18 @@ async fn upload_images_post(
             PostType::Images,
         )
         .await;
+
+        if let Err(_) = res {
+            s3_delete(&s.s3_client, username, post_id, counter - 2).await?;
+            s3_delete(&s.s3_client, username, post_id, counter - 1).await?;
+        }
+
+        res?;
     }
 
-    trans.commit().await?;
+    transaction.commit().await?;
 
-    Ok("file created".to_string())
+    Ok(StatusCode::CREATED)
 }
 
 async fn download(
@@ -134,7 +149,7 @@ async fn download(
     Path((username, post_id, image_id)): Path<(String, i64, i64)>,
     State(s): State<AppState>,
 ) -> RouterResult<Body> {
-    let res = s3_download_image(&s.s3_client, &username, post_id, image_id as usize).await;
+    let res = s3_download(&s.s3_client, &username, post_id, image_id as usize).await;
 
     let stream = tokio_util::io::ReaderStream::new(res.unwrap().body.into_async_read());
     let data = Body::from_stream(stream);
@@ -169,7 +184,7 @@ async fn upload_workout_post(
     ctx: Ctx,
     State(s): State<AppState>,
     body: Json<UploadWorkout>,
-) -> RouterResult<()> {
+) -> RouterResult<StatusCode> {
     if let Err(e) = body.validate() {
         return Err(RouteError::Validation(e.to_string()));
     }
@@ -185,23 +200,29 @@ async fn upload_workout_post(
         post_type: PostType::Workout,
     };
 
-    let post_id = super::models::base::create::<ContentModel, _>(post, &s.pool).await?;
+    let mut transaction = s.pool.begin().await?;
+
+    let post_id =
+        super::models::base::create_with_transaction::<ContentModel, _>(post, &mut transaction)
+            .await?;
 
     let byte_slice = unsafe { any_as_u8_slice(&body.workout) };
     let bytes = axum::body::Bytes::copy_from_slice(byte_slice);
 
-    s3_upload_post(
+    s3_upload(
         &s.s3_client,
         bytes,
         ctx.jwt().username(),
         post_id,
         1,
-        "application/json",
+        JSON_CONTENT_TYPE,
         PostType::Workout,
     )
-    .await;
+    .await?;
 
-    Ok(())
+    transaction.commit().await?;
+
+    Ok(StatusCode::CREATED)
 }
 
 #[derive(Serialize)]

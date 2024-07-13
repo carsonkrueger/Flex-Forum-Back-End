@@ -1,6 +1,7 @@
 use aws_sdk_s3::{
     error::SdkError,
     operation::{
+        delete_object::{DeleteObjectError, DeleteObjectOutput},
         get_object::{GetObjectError, GetObjectOutput},
         put_object::{PutObjectError, PutObjectOutput},
     },
@@ -23,7 +24,7 @@ impl From<PostType> for &str {
     }
 }
 
-pub async fn s3_upload_post(
+pub async fn s3_upload(
     s3_client: &Client,
     bytes: Bytes,
     username: &str,
@@ -48,15 +49,31 @@ pub async fn s3_upload_post(
     res
 }
 
-pub async fn s3_download_image(
+pub async fn s3_download(
     s3_client: &Client,
     username: &str,
     post_id: i64,
-    image_num: usize,
+    content_num: usize,
 ) -> Result<GetObjectOutput, SdkError<GetObjectError>> {
-    let key = user_post_bucket_key(username, post_id, image_num);
+    let key = user_post_bucket_key(username, post_id, content_num);
     let res = s3_client
         .get_object()
+        .bucket(IMAGE_BUCKET)
+        .key(&key)
+        .send()
+        .await;
+    res
+}
+
+pub async fn s3_delete(
+    s3_client: &Client,
+    username: &str,
+    post_id: i64,
+    content_num: usize,
+) -> Result<DeleteObjectOutput, SdkError<DeleteObjectError>> {
+    let key = user_post_bucket_key(username, post_id, content_num);
+    let res = s3_client
+        .delete_object()
         .bucket(IMAGE_BUCKET)
         .key(&key)
         .send()
