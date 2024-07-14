@@ -15,12 +15,18 @@ use crate::models::content_model::PostType;
 const IMAGE_BUCKET: &str = "flexforumimages1";
 const WORKOUT_BUCKET: &str = "flexforumworkouts1";
 
-impl From<PostType> for &str {
+pub enum FlexForumBucket {
+    ImageBucket1,
+    WorkoutBucket1,
+}
+
+impl From<PostType> for String {
     fn from(value: PostType) -> Self {
         match value {
             PostType::Images => IMAGE_BUCKET,
             PostType::Workout => WORKOUT_BUCKET,
         }
+        .to_string()
     }
 }
 
@@ -35,12 +41,11 @@ pub async fn s3_upload(
 ) -> Result<PutObjectOutput, SdkError<PutObjectError>> {
     // Result<PutObjectOutput, SdkError<PutObjectError,  Response>>
     let key = user_post_bucket_key(username, post_id, content_num);
-    let bucket: &str = post_type.into();
     let sdk_body = SdkBody::from(bytes);
     let byte_stream = ByteStream::new(sdk_body);
     let res = s3_client
         .put_object()
-        .bucket(bucket)
+        .bucket(post_type)
         .key(&key)
         .body(byte_stream)
         .content_type(content_type)
@@ -54,14 +59,10 @@ pub async fn s3_download(
     username: &str,
     post_id: i64,
     content_num: usize,
+    bucket: PostType,
 ) -> Result<GetObjectOutput, SdkError<GetObjectError>> {
     let key = user_post_bucket_key(username, post_id, content_num);
-    let res = s3_client
-        .get_object()
-        .bucket(IMAGE_BUCKET)
-        .key(&key)
-        .send()
-        .await;
+    let res = s3_client.get_object().bucket(bucket).key(&key).send().await;
     res
 }
 

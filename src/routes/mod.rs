@@ -8,7 +8,9 @@ use crate::{
 };
 use aws_sdk_s3::{
     error::SdkError,
-    operation::{delete_object::DeleteObjectError, put_object::PutObjectError},
+    operation::{
+        delete_object::DeleteObjectError, get_object::GetObjectError, put_object::PutObjectError,
+    },
 };
 use axum::{
     body::Body,
@@ -43,10 +45,10 @@ pub enum RouteError {
     ChronoParseError,
     InvalidContentType(String),
     IOError(String),
-    Sqlx(std::sync::Arc<sqlx::Error>),
+    Sqlx(String),
+    AwsSdkError(String),
     // Used to hide error from users
     Unknown,
-    AwsSdkError(String),
 }
 
 pub trait NestedRoute<S> {
@@ -132,7 +134,7 @@ impl From<std::io::Error> for RouteError {
 
 impl From<sqlx::Error> for RouteError {
     fn from(value: sqlx::Error) -> Self {
-        Self::Sqlx(std::sync::Arc::new(value))
+        Self::Sqlx(value.to_string())
     }
 }
 
@@ -144,6 +146,12 @@ impl From<SdkError<PutObjectError>> for RouteError {
 
 impl From<SdkError<DeleteObjectError>> for RouteError {
     fn from(value: SdkError<DeleteObjectError>) -> Self {
+        Self::AwsSdkError(value.to_string())
+    }
+}
+
+impl From<SdkError<GetObjectError>> for RouteError {
+    fn from(value: SdkError<GetObjectError>) -> Self {
         Self::AwsSdkError(value.to_string())
     }
 }

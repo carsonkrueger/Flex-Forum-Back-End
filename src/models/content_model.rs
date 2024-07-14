@@ -30,7 +30,7 @@ pub struct ContentModel {
     pub username: String,
     pub num_images: i16,
     pub post_type: PostType,
-    pub description: String,
+    pub description: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub deactivated_at: Option<chrono::DateTime<chrono::Utc>>,
 }

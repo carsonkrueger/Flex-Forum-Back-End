@@ -32,7 +32,7 @@ impl NestedRoute<AppState> for ContentRoute {
     fn router() -> axum::Router<AppState> {
         Router::new()
             .route("/images", post(upload_images_post))
-            .route("/images/:username/:post_id/:image_id", get(download))
+            .route("/:post_type/:username/:post_id/:content_id", get(download))
             .route("/workouts", post(upload_workout_post))
             .route("/posts/:created_at", get(get_post_by_time))
             .route("/like/:post_id", post(like_post))
@@ -146,12 +146,19 @@ async fn upload_images_post(
 
 async fn download(
     _ctx: Ctx,
-    Path((username, post_id, image_id)): Path<(String, i64, i64)>,
+    Path((post_type, username, post_id, content_id)): Path<(PostType, String, i64, i64)>,
     State(s): State<AppState>,
 ) -> RouterResult<Body> {
-    let res = s3_download(&s.s3_client, &username, post_id, image_id as usize).await;
+    let res = s3_download(
+        &s.s3_client,
+        &username,
+        post_id,
+        content_id as usize,
+        post_type,
+    )
+    .await?;
 
-    let stream = tokio_util::io::ReaderStream::new(res.unwrap().body.into_async_read());
+    let stream = tokio_util::io::ReaderStream::new(res.body.into_async_read());
     let data = Body::from_stream(stream);
 
     Ok(data)
@@ -231,6 +238,7 @@ struct PostCard {
     content_model: ContentModel,
     num_likes: usize,
     is_liked: bool,
+    post_type: PostType,
 }
 
 async fn get_post_by_time(
@@ -239,6 +247,7 @@ async fn get_post_by_time(
     Path(created_at): Path<chrono::DateTime<chrono::Utc>>,
 ) -> RouterResult<Json<Vec<PostCard>>> {
     let posts = get_three_older(&s.pool, &created_at).await?;
+    println!("{:?}", posts);
     let mut post_cards: Vec<PostCard> = Vec::with_capacity(3);
 
     for i in 0..posts.len() {
@@ -253,6 +262,7 @@ async fn get_post_by_time(
             content_model: posts[i].clone(),
             is_liked,
             num_likes,
+            post_type: posts[i].post_type.clone(),
         };
         post_cards.push(card);
     }
