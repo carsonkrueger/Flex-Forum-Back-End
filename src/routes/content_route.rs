@@ -213,8 +213,10 @@ async fn upload_workout_post(
         super::models::base::create_with_transaction::<ContentModel, _>(post, &mut transaction)
             .await?;
 
-    let byte_slice = unsafe { any_as_u8_slice(&body.workout) };
-    let bytes = axum::body::Bytes::copy_from_slice(byte_slice);
+    //let byte_slice = unsafe { any_as_u8_slice(&body.workout) };
+    // let bytes = axum::body::Bytes::copy_from_slice(byte_slice);
+    let json_string = serde_json::to_string(&body.workout).unwrap();
+    let bytes = Bytes::from(json_string);
 
     s3_upload(
         &s.s3_client,
