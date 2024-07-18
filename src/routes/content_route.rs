@@ -23,7 +23,7 @@ use crate::{
     AppState,
 };
 
-use super::{bytes::any_as_u8_slice, NestedRoute, RouteError, RouterResult};
+use super::{NestedRoute, RouteError, RouterResult};
 
 pub struct ContentRoute;
 
@@ -240,7 +240,6 @@ struct PostCard {
     content_model: ContentModel,
     num_likes: usize,
     is_liked: bool,
-    post_type: PostType,
 }
 
 async fn get_post_by_time(
@@ -249,7 +248,6 @@ async fn get_post_by_time(
     Path(created_at): Path<chrono::DateTime<chrono::Utc>>,
 ) -> RouterResult<Json<Vec<PostCard>>> {
     let posts = get_three_older(&s.pool, &created_at).await?;
-    println!("{:?}", posts);
     let mut post_cards: Vec<PostCard> = Vec::with_capacity(3);
 
     for i in 0..posts.len() {
@@ -264,7 +262,6 @@ async fn get_post_by_time(
             content_model: posts[i].clone(),
             is_liked,
             num_likes,
-            post_type: posts[i].post_type.clone(),
         };
         post_cards.push(card);
     }
