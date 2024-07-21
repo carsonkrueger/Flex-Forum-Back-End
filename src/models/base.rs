@@ -1,5 +1,5 @@
-use sqlb::{HasFields, SqlBuilder, SqlxBindable};
-use sqlx::{postgres::PgRow, Encode, FromRow, Pool, Postgres, Transaction};
+use sqlb::{HasFields, SqlxBindable};
+use sqlx::{postgres::PgRow, FromRow, Pool, Postgres, Transaction};
 
 use super::ModelResult;
 
@@ -100,6 +100,21 @@ where
         .await?;
 
     Ok(entity)
+}
+
+pub async fn get_all<MC, E>(db: &Pool<Postgres>) -> ModelResult<Vec<E>>
+where
+    MC: DbBmc,
+    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    E: HasFields,
+{
+    let entities = sqlb::select()
+        .table(MC::TABLE)
+        .columns(E::field_names())
+        .fetch_all(db)
+        .await?;
+
+    Ok(entities)
 }
 
 // Updates the given fields with the given id, returning the number of rows affected.

@@ -1,5 +1,6 @@
 pub mod base;
 pub mod content_model;
+pub mod exercise_preset_model;
 pub mod likes_model;
 pub mod user_model;
 

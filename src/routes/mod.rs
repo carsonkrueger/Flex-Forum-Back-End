@@ -20,12 +20,14 @@ use axum::{
     Router,
 };
 use content_route::ContentRoute;
+use exercise_preset_route::ExercisePresetRoute;
 use sqlx::{Pool, Postgres};
 use tower_cookies::CookieManagerLayer;
 
 mod auth_route;
 mod bytes;
 mod content_route;
+mod exercise_preset_route;
 mod hello_world;
 mod users_route;
 
@@ -65,6 +67,7 @@ pub struct AppState {
 pub fn create_routes(app_state: AppState) -> Router {
     Router::new()
         .nest(HelloWorldRoute::PATH, HelloWorldRoute::router())
+        .nest(ExercisePresetRoute::PATH, ExercisePresetRoute::router())
         .nest(UserRoute::PATH, UserRoute::router())
         .nest(ContentRoute::PATH, ContentRoute::router())
         .layer(from_fn(validate_auth))

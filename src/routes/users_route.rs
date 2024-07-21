@@ -15,7 +15,6 @@ use axum::{extract::State, Json};
 use serde::Serialize;
 use sqlb::Fields;
 use sqlx::prelude::FromRow;
-use sqlx::PgPool;
 use tower_cookies::Cookie;
 use tower_cookies::Cookies;
 
