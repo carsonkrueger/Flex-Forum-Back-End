@@ -166,10 +166,10 @@ async fn download(
 
 #[derive(Deserialize, Serialize)]
 pub struct Exercise {
-    exercise_name: String,
+    preset_id: i64,
     num_sets: i32,
     num_reps: i32,
-    timer: u32,
+    timer: Option<u32>,
 }
 
 #[derive(Deserialize, Serialize, Validate)]

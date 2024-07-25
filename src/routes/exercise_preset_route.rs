@@ -18,6 +18,7 @@ impl NestedRoute<AppState> for ExercisePresetRoute {
 
 #[derive(Fields, FromRow, Serialize)]
 pub struct ReadExercisePresetModel {
+    pub id: i64,
     pub name: String,
     pub description: Option<String>,
 }

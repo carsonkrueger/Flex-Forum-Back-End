@@ -67,10 +67,10 @@ pub struct AppState {
 pub fn create_routes(app_state: AppState) -> Router {
     Router::new()
         .nest(HelloWorldRoute::PATH, HelloWorldRoute::router())
-        .nest(ExercisePresetRoute::PATH, ExercisePresetRoute::router())
         .nest(UserRoute::PATH, UserRoute::router())
         .nest(ContentRoute::PATH, ContentRoute::router())
         .layer(from_fn(validate_auth))
+        .nest(ExercisePresetRoute::PATH, ExercisePresetRoute::router())
         .nest(AuthRoute::PATH, AuthRoute::router())
         .layer(from_fn(ctx_resolver))
         .layer(map_response(logger))
