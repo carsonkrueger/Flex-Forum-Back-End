@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use aws_sdk_s3::{
     error::SdkError,
     operation::{
@@ -30,7 +32,7 @@ impl From<PostType> for String {
     }
 }
 
-pub async fn s3_upload(
+pub async fn s3_upload_post(
     s3_client: &Client,
     bytes: Bytes,
     username: &str,
@@ -54,7 +56,7 @@ pub async fn s3_upload(
     res
 }
 
-pub async fn s3_download(
+pub async fn s3_download_post(
     s3_client: &Client,
     username: &str,
     post_id: i64,
@@ -66,7 +68,7 @@ pub async fn s3_download(
     res
 }
 
-pub async fn s3_delete(
+pub async fn s3_delete_post(
     s3_client: &Client,
     username: &str,
     post_id: i64,
@@ -77,6 +79,26 @@ pub async fn s3_delete(
         .delete_object()
         .bucket(IMAGE_BUCKET)
         .key(&key)
+        .send()
+        .await;
+    res
+}
+
+pub async fn s3_upload_profile_picture(
+    s3_client: &Client,
+    username: &str,
+    bytes: Bytes,
+    content_type: impl Into<String>,
+) -> Result<PutObjectOutput, SdkError<PutObjectError>> {
+    let key = format!("{}/{}", username, "profile_picture");
+    let sdk_body = SdkBody::from(bytes);
+    let byte_stream = ByteStream::new(sdk_body);
+    let res = s3_client
+        .put_object()
+        .bucket(IMAGE_BUCKET)
+        .key(&key)
+        .body(byte_stream)
+        .content_type(content_type)
         .send()
         .await;
     res

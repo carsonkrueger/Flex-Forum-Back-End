@@ -102,17 +102,29 @@ where
     Ok(entity)
 }
 
-pub async fn get_all<MC, E>(db: &Pool<Postgres>) -> ModelResult<Vec<E>>
+pub async fn get_all<MC, E>(db: &Pool<Postgres>, order_by: Option<&str>) -> ModelResult<Vec<E>>
 where
     MC: DbBmc,
     E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
     E: HasFields,
 {
-    let entities = sqlb::select()
-        .table(MC::TABLE)
-        .columns(E::field_names())
-        .fetch_all(db)
-        .await?;
+    let entities = match order_by {
+        Some(ob) => {
+            sqlb::select()
+                .table(MC::TABLE)
+                .columns(E::field_names())
+                .order_by(ob)
+                .fetch_all(db)
+                .await?
+        }
+        None => {
+            sqlb::select()
+                .table(MC::TABLE)
+                .columns(E::field_names())
+                .fetch_all(db)
+                .await?
+        }
+    };
 
     Ok(entities)
 }

@@ -13,12 +13,14 @@ use validator::Validate;
 use crate::{
     libs::ctx::Ctx,
     models::{
+        base,
         content_model::{self, get_three_older, ContentModel, PostType},
         likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
+        profile_picture_model::ProfilePictureModel,
     },
     services::{
         multipart::validate_content_type,
-        s3::{s3_delete, s3_download, s3_upload},
+        s3::{s3_delete_post, s3_download_post, s3_upload_post, s3_upload_profile_picture},
     },
     AppState,
 };
@@ -37,6 +39,7 @@ impl NestedRoute<AppState> for ContentRoute {
             .route("/posts/:created_at", get(get_post_by_time))
             .route("/like/:post_id", post(like_post))
             .route("/like/:post_id", delete(unlike_post))
+            .route("/profile-picture/:username", post(upload_profile_picture))
     }
 }
 
@@ -87,7 +90,7 @@ async fn upload_images_post(
     let mut counter = 1;
     let username = ctx.jwt().username();
 
-    s3_upload(
+    s3_upload_post(
         &s.s3_client,
         upload.image1.contents.clone(),
         username,
@@ -100,7 +103,7 @@ async fn upload_images_post(
 
     if let Some(img) = upload.image2 {
         counter += 1;
-        let res = s3_upload(
+        let res = s3_upload_post(
             &s.s3_client,
             img.contents.clone(),
             username,
@@ -112,7 +115,7 @@ async fn upload_images_post(
         .await;
 
         if let Err(_) = res {
-            s3_delete(&s.s3_client, username, post_id, counter - 1).await?;
+            s3_delete_post(&s.s3_client, username, post_id, counter - 1).await?;
         }
 
         res?;
@@ -120,20 +123,20 @@ async fn upload_images_post(
 
     if let Some(img) = upload.image3 {
         counter += 1;
-        let res = s3_upload(
+        let res = s3_upload_post(
             &s.s3_client,
             img.contents,
             username,
             post_id,
             counter,
-            img.metadata.content_type.unwrap(), // content type validated abolve
+            img.metadata.content_type.unwrap(), // content type validated above
             PostType::Images,
         )
         .await;
 
         if let Err(_) = res {
-            s3_delete(&s.s3_client, username, post_id, counter - 2).await?;
-            s3_delete(&s.s3_client, username, post_id, counter - 1).await?;
+            s3_delete_post(&s.s3_client, username, post_id, counter - 2).await?;
+            s3_delete_post(&s.s3_client, username, post_id, counter - 1).await?;
         }
 
         res?;
@@ -149,7 +152,7 @@ async fn download(
     Path((post_type, username, post_id, content_id)): Path<(PostType, String, i64, i64)>,
     State(s): State<AppState>,
 ) -> RouterResult<Body> {
-    let res = s3_download(
+    let res = s3_download_post(
         &s.s3_client,
         &username,
         post_id,
@@ -218,7 +221,7 @@ async fn upload_workout_post(
     let json_string = serde_json::to_string(&body.workout).unwrap();
     let bytes = Bytes::from(json_string);
 
-    s3_upload(
+    s3_upload_post(
         &s.s3_client,
         bytes,
         ctx.jwt().username(),
@@ -295,5 +298,38 @@ async fn unlike_post(
         &s.pool,
     )
     .await?;
+    Ok(())
+}
+
+#[derive(TryFromMultipart)]
+struct UploadProfileImageMulipart {
+    image: FieldData<Bytes>,
+}
+
+async fn upload_profile_picture(
+    ctx: Ctx,
+    State(s): State<AppState>,
+    TypedMultipart(upload): TypedMultipart<UploadProfileImageMulipart>,
+) -> RouterResult<()> {
+    validate_content_type(&upload.image, IMAGE_CONTENT_TYPES)?;
+
+    let model = ProfilePictureModel {
+        id: 0,
+        username: ctx.jwt().username().to_string(),
+    };
+
+    let mut transaction = s.pool.begin().await?;
+    base::create_with_transaction::<ProfilePictureModel, _>(model, &mut transaction).await?;
+
+    s3_upload_profile_picture(
+        &s.s3_client,
+        ctx.jwt().username(),
+        upload.image.contents,
+        upload.image.metadata.content_type.unwrap(), // content type validated above
+    )
+    .await?;
+
+    transaction.commit().await?;
+
     Ok(())
 }
