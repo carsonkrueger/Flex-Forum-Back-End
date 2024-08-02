@@ -29,7 +29,7 @@ async fn main() {
     let app_state = AppState { pool, s3_client };
     let router = routes::create_routes(app_state).layer(cors);
 
-    let addr = "0.0.0.0:3002";
+    let addr = "0.0.0.0:3001";
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect(&format!("Could not listen at {}", addr));

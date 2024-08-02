@@ -39,7 +39,7 @@ impl NestedRoute<AppState> for ContentRoute {
             .route("/posts/:created_at", get(get_post_by_time))
             .route("/like/:post_id", post(like_post))
             .route("/like/:post_id", delete(unlike_post))
-            .route("/profile-picture/:username", post(upload_profile_picture))
+            .route("/profile-picture", post(upload_profile_picture))
     }
 }
 
