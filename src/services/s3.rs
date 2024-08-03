@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use aws_sdk_s3::{
     error::SdkError,
     operation::{

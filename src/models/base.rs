@@ -37,26 +37,6 @@ pub async fn create_with_transaction<MC: DbBmc, D: HasFields>(
     Ok(id)
 }
 
-// pub async fn create_if_not_exists<MC: DbBmc, D: HasFields>(
-//     data: D,
-//     db: &Pool<Postgres>,
-// ) -> ModelResult<i64> {
-//     let fields = data.not_none_fields();
-
-//     let (id,) = sqlb::insert()
-//         .table(MC::TABLE)
-//         .data(fields)
-//         .returning(&["id"])
-//         .fetch_one::<_, (i64,)>(db)
-//         .await?;
-//     // let res = sqlx::query(&format!("INSERT IGNORE INTO {} RETURNING (id)", MC::TABLE))
-//     //     .bind(data)
-//     //     .fetch_one(db)
-//     //     .await?;
-
-//     Ok(id)
-// }
-
 // Gets the first row with the given id.
 pub async fn get_one<MC, E, K>(column: &str, key: K, db: &Pool<Postgres>) -> ModelResult<Option<E>>
 where
@@ -122,6 +102,36 @@ where
                 .table(MC::TABLE)
                 .columns(E::field_names())
                 .fetch_all(db)
+                .await?
+        }
+    };
+
+    Ok(entities)
+}
+
+pub async fn get_all_with_transaction<MC, E>(
+    db: &mut Transaction<'_, Postgres>,
+    order_by: Option<&str>,
+) -> ModelResult<Vec<E>>
+where
+    MC: DbBmc,
+    E: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    E: HasFields,
+{
+    let entities = match order_by {
+        Some(ob) => {
+            sqlb::select()
+                .table(MC::TABLE)
+                .columns(E::field_names())
+                .order_by(ob)
+                .fetch_all(&mut **db)
+                .await?
+        }
+        None => {
+            sqlb::select()
+                .table(MC::TABLE)
+                .columns(E::field_names())
+                .fetch_all(&mut **db)
                 .await?
         }
     };

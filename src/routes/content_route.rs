@@ -319,7 +319,16 @@ async fn upload_profile_picture(
     };
 
     let mut transaction = s.pool.begin().await?;
-    base::create_with_transaction::<ProfilePictureModel, _>(model, &mut transaction).await?;
+
+    let items = base::get_all_with_transaction::<ProfilePictureModel, ProfilePictureModel>(
+        &mut transaction,
+        None,
+    )
+    .await?;
+
+    if items.len() == 0 {
+        base::create_with_transaction::<ProfilePictureModel, _>(model, &mut transaction).await?;
+    }
 
     s3_upload_profile_picture(
         &s.s3_client,
