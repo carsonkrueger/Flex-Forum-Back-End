@@ -26,6 +26,6 @@ pub struct ReadExercisePresetModel {
 pub async fn get_presets(
     State(s): State<AppState>,
 ) -> RouterResult<Json<Vec<ReadExercisePresetModel>>> {
-    let res = super::models::base::get_all::<ExercisePresetModel, _>(&s.pool, Some("name")).await?;
+    let res = super::models::base::get_all::<ExercisePresetModel, _>(&s.pool, Some("id")).await?;
     Ok(Json(res))
 }
