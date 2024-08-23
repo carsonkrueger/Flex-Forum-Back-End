@@ -62,7 +62,7 @@ pub async fn get_three_older(
             "created_at",
             "deactivated_at",
         ])
-        .and_where("created_at", "<=", DateTimeUtcWrapper(created_at))
+        .and_where("created_at", "<", DateTimeUtcWrapper(created_at))
         .order_by("!created_at")
         .limit(3)
         .fetch_all::<_, ContentModel>(pool)
