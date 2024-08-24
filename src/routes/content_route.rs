@@ -15,6 +15,7 @@ use crate::{
     models::{
         base,
         content_model::{self, get_three_older, ContentModel, PostType},
+        following_model::{is_following, FollowingModel},
         likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
         profile_picture_model::ProfilePictureModel,
     },
@@ -40,6 +41,8 @@ impl NestedRoute<AppState> for ContentRoute {
             .route("/like/:post_id", post(like_post))
             .route("/like/:post_id", delete(unlike_post))
             .route("/profile-picture", post(upload_profile_picture))
+            .route("/follow/:following", post(follow_user))
+            .route("/follow/:following", delete(unfollow_user))
     }
 }
 
@@ -243,6 +246,7 @@ struct PostCard {
     content_model: ContentModel,
     num_likes: usize,
     is_liked: bool,
+    is_following: bool,
 }
 
 async fn get_post_by_time(
@@ -261,10 +265,13 @@ async fn get_post_by_time(
             username: ctx.jwt().username().to_string(),
         };
         let is_liked = is_liked(&s.pool, like).await?;
+        // let is_following = false;
+        let is_following = is_following(&s.pool, ctx.jwt().username(), &posts[i].username).await?;
         let card = PostCard {
             content_model: posts[i].clone(),
             is_liked,
             num_likes,
+            is_following,
         };
         post_cards.push(card);
     }
@@ -340,5 +347,35 @@ async fn upload_profile_picture(
 
     transaction.commit().await?;
 
+    Ok(())
+}
+
+async fn follow_user(
+    ctx: Ctx,
+    State(s): State<AppState>,
+    Path(following): Path<String>,
+) -> RouterResult<()> {
+    let follow = FollowingModel {
+        id: 0,
+        follower: ctx.jwt().username().to_string(),
+        following,
+    };
+    super::models::base::create::<FollowingModel, FollowingModel>(follow, &s.pool).await?;
+    Ok(())
+}
+
+async fn unfollow_user(
+    ctx: Ctx,
+    State(s): State<AppState>,
+    Path(following): Path<String>,
+) -> RouterResult<()> {
+    super::models::base::delete_with_both::<FollowingModel, _, _>(
+        "follower",
+        ctx.jwt().username(),
+        "following",
+        following,
+        &s.pool,
+    )
+    .await?;
     Ok(())
 }

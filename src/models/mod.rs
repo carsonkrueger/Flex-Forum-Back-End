@@ -1,6 +1,8 @@
+pub mod a_matrix_join_model;
 pub mod base;
 pub mod content_model;
 pub mod exercise_preset_model;
+pub mod following_model;
 pub mod likes_model;
 pub mod profile_picture_model;
 pub mod user_model;
