@@ -1,8 +1,10 @@
 use aws_sdk_s3::config::Credentials;
 use dotenvy::dotenv;
+use models::{content_model::ContentModel, user_model::UserModel};
 use routes::AppState;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-use std::{env, time::Duration};
+use std::{env, sync::Arc, time::Duration};
+use tensorflow::Tensor;
 use tower_http::cors::{Any, CorsLayer};
 
 mod libs;
@@ -26,7 +28,14 @@ async fn main() {
         .allow_origin(Any)
         .allow_headers(Any);
 
-    let app_state = AppState { pool, s3_client };
+    let (u_embeddings, v_embeddings) = load_embeddings(&pool, 10).await;
+
+    let app_state = AppState {
+        pool,
+        s3_client,
+        u_embeddings: Arc::new(u_embeddings),
+        v_embeddings: Arc::new(v_embeddings),
+    };
     let router = routes::create_routes(app_state).layer(cors);
 
     let addr = "0.0.0.0:3001";
@@ -65,4 +74,19 @@ async fn create_s3_client() -> aws_sdk_s3::Client {
         .load()
         .await;
     aws_sdk_s3::Client::new(&config)
+}
+
+/// -> (u, v)
+async fn load_embeddings(pg_pool: &Pool<Postgres>, k: u64) -> (Tensor<f32>, Tensor<f32>) {
+    let u_count = models::base::count::<UserModel>(pg_pool)
+        .await
+        .expect("Could not count users") as u64;
+    let v_count = models::base::count::<ContentModel>(pg_pool)
+        .await
+        .expect("Could not count posts") as u64;
+
+    let u = Tensor::new(&[u_count, k]);
+    let v = Tensor::new(&[v_count, k]);
+
+    (u, v)
 }

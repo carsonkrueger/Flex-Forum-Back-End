@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use self::{auth_route::AuthRoute, hello_world::HelloWorldRoute, users_route::UserRoute};
 use crate::{
     middleware::{
@@ -22,6 +24,7 @@ use axum::{
 use content_route::ContentRoute;
 use exercise_preset_route::ExercisePresetRoute;
 use sqlx::{Pool, Postgres};
+use tensorflow::Tensor;
 use tower_cookies::CookieManagerLayer;
 
 mod auth_route;
@@ -61,6 +64,8 @@ pub trait NestedRoute<S> {
 pub struct AppState {
     pub pool: Pool<Postgres>,
     pub s3_client: aws_sdk_s3::Client,
+    pub u_embeddings: Arc<Tensor<f32>>,
+    pub v_embeddings: Arc<Tensor<f32>>,
 }
 
 pub fn create_routes(app_state: AppState) -> Router {

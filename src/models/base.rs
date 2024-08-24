@@ -240,3 +240,10 @@ pub async fn count_where<MC: DbBmc>(
     // Ok(count)
     Ok(count)
 }
+
+pub async fn count<MC: DbBmc>(db: &Pool<Postgres>) -> ModelResult<i64> {
+    let count = sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(id) FROM {};", MC::TABLE,))
+        .fetch_one(db)
+        .await?;
+    Ok(count)
+}
