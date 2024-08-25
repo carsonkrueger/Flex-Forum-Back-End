@@ -7,6 +7,7 @@ use crate::{
         logger_mw::logger,
     },
     models,
+    services::tensor::TensorAppState,
 };
 use aws_sdk_s3::{
     error::SdkError,
@@ -64,8 +65,7 @@ pub trait NestedRoute<S> {
 pub struct AppState {
     pub pool: Pool<Postgres>,
     pub s3_client: aws_sdk_s3::Client,
-    pub u_embeddings: Arc<Tensor<f32>>,
-    pub v_embeddings: Arc<Tensor<f32>>,
+    pub models: Arc<TensorAppState>,
 }
 
 pub fn create_routes(app_state: AppState) -> Router {

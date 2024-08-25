@@ -276,8 +276,6 @@ async fn get_post_by_time(
         post_cards.push(card);
     }
 
-    println!("{:?}", post_cards);
-
     Ok(Json(post_cards))
 }
 

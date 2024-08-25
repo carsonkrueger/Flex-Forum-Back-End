@@ -1,10 +1,11 @@
 use aws_sdk_s3::config::Credentials;
 use dotenvy::dotenv;
+use itertools::Itertools;
 use models::{
-    content_model::ContentModel, interactions_matrix_model::InteractionsMatrixModel,
-    user_model::UserModel,
+    content_model::ContentModel, interactions_matrix_model::build_model, user_model::UserModel,
 };
 use routes::AppState;
+use services::tensor::TensorAppState;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, sync::Arc, time::Duration};
 use tensorflow::Tensor;
@@ -31,13 +32,19 @@ async fn main() {
         .allow_origin(Any)
         .allow_headers(Any);
 
-    let (u_embeddings, v_embeddings) = load_embeddings(&pool, 10).await;
+    let k_features = 10;
+    let (u_embeddings, v_embeddings, a) = load_models(&pool, k_features).await;
+
+    let tensor_app_state = TensorAppState {
+        user_embeddings: u_embeddings,
+        post_embeddings: v_embeddings,
+        interactions: a,
+    };
 
     let app_state = AppState {
         pool,
         s3_client,
-        u_embeddings: Arc::new(u_embeddings),
-        v_embeddings: Arc::new(v_embeddings),
+        models: Arc::new(tensor_app_state),
     };
     let router = routes::create_routes(app_state).layer(cors);
 
@@ -79,42 +86,43 @@ async fn create_s3_client() -> aws_sdk_s3::Client {
     aws_sdk_s3::Client::new(&config)
 }
 
-/// -> (u, v)
-async fn load_embeddings(pg_pool: &Pool<Postgres>, k: u64) -> (Tensor<f32>, Tensor<f32>) {
-    let u_count = models::base::count::<UserModel>(pg_pool)
+/// -> (u, v, a)
+async fn load_models(pg_pool: &Pool<Postgres>, k: u64) -> (Tensor<f32>, Tensor<f32>, Tensor<f32>) {
+    let join_query = build_model(pg_pool)
         .await
-        .expect("Could not count users") as u64;
-    let v_count = models::base::count::<ContentModel>(pg_pool)
-        .await
-        .expect("Could not count posts") as u64;
+        .expect("Could not query for interactions matrix model");
 
+    println!("{:?}", join_query);
+
+    let u_count = join_query
+        .iter()
+        .unique_by(|q| q.user_id)
+        .collect::<Vec<_>>()
+        .len() as u64;
+    let v_count = join_query
+        .iter()
+        .unique_by(|q| q.post_id)
+        .collect::<Vec<_>>()
+        .len() as u64;
+
+    println!("{}-{}", u_count, v_count);
+
+    let id_start = 1000;
     let u = Tensor::new(&[u_count, k]);
     let v = Tensor::new(&[v_count, k]);
+    let mut a = Tensor::<f32>::new(&[u_count, v_count, 2]);
 
-    let join_query = sqlx::query_as::<Postgres, InteractionsMatrixModel>(
-        "
-        SELECT
-            u.id as user_id,
-            p.id as post_id,
-            u.username
-                FROM post_management.posts p
-                JOIN user_management.users u
-                    ON p.username = u.username;
-            ",
-    )
-    .fetch_all(pg_pool)
-    .await
-    .expect("Could not query for interactions matrix model");
+    // fills the tensor
+    for i in 0..join_query.len() {
+        let u_index = (join_query[i].user_id - id_start) as u64;
+        let v_index = (join_query[i].post_id - id_start) as u64;
+        a.set(&[u_index, v_index, 0], join_query[i].is_liked as f32);
+        a.set(&[u_index, v_index, 1], join_query[i].is_following as f32);
+    }
 
-    let all_users = sqlx::query_as::<_, UserModel>("SELECT * FROM user_management.users;")
-        .fetch_all(pg_pool)
-        .await
-        .expect("Could not get all users");
+    let o = a * v;
 
-    let all_posts = sqlx::query_as::<_, ContentModel>("SELECT * FROM post_management.posts;")
-        .fetch_all(pg_pool)
-        .await
-        .expect("Could not get all posts");
+    println!("{:?}", a);
 
-    (u, v)
+    (u, v, a)
 }

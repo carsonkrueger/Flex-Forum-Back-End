@@ -34,3 +34,4 @@ aws-sdk-s3 = { version = "1.38.0" }
 aws-config = { version = "1.5.3", features = ["behavior-version-latest"] }
 serde_json = "1.0.120"
 tensorflow = "0.21.0"
+itertools = "0.13.0"
