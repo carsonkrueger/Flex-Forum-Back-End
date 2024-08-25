@@ -120,8 +120,6 @@ async fn load_models(pg_pool: &Pool<Postgres>, k: u64) -> (Tensor<f32>, Tensor<f
         a.set(&[u_index, v_index, 1], join_query[i].is_following as f32);
     }
 
-    let o = a * v;
-
     println!("{:?}", a);
 
     (u, v, a)
