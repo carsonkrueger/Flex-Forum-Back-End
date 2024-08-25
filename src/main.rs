@@ -1,6 +1,9 @@
 use aws_sdk_s3::config::Credentials;
 use dotenvy::dotenv;
-use models::{content_model::ContentModel, user_model::UserModel};
+use models::{
+    content_model::ContentModel, interactions_matrix_model::InteractionsMatrixModel,
+    user_model::UserModel,
+};
 use routes::AppState;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, sync::Arc, time::Duration};
@@ -87,6 +90,31 @@ async fn load_embeddings(pg_pool: &Pool<Postgres>, k: u64) -> (Tensor<f32>, Tens
 
     let u = Tensor::new(&[u_count, k]);
     let v = Tensor::new(&[v_count, k]);
+
+    let join_query = sqlx::query_as::<Postgres, InteractionsMatrixModel>(
+        "
+        SELECT
+            u.id as user_id,
+            p.id as post_id,
+            u.username
+                FROM post_management.posts p
+                JOIN user_management.users u
+                    ON p.username = u.username;
+            ",
+    )
+    .fetch_all(pg_pool)
+    .await
+    .expect("Could not query for interactions matrix model");
+
+    let all_users = sqlx::query_as::<_, UserModel>("SELECT * FROM user_management.users;")
+        .fetch_all(pg_pool)
+        .await
+        .expect("Could not get all users");
+
+    let all_posts = sqlx::query_as::<_, ContentModel>("SELECT * FROM post_management.posts;")
+        .fetch_all(pg_pool)
+        .await
+        .expect("Could not get all posts");
 
     (u, v)
 }

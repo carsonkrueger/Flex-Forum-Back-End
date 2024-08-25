@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS post_management.comments (
     post_id bigint NOT NULL REFERENCES post_management.posts (id) ON DELETE CASCADE,
     username varchar(32) NOT NULL REFERENCES user_management.users (username) ON DELETE CASCADE,
     comment varchar(1000) NOT NULL,
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    deactivated_at timestamp with time zone DEFAULT NULL
+    created_at timestamp NOT NULL DEFAULT now(),
+    deactivated_at timestamp DEFAULT NULL
 );
 
 CREATE UNIQUE INDEX comments_index ON post_management.comments (post_id);

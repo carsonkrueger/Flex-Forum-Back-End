@@ -9,6 +9,6 @@ CREATE TABLE IF NOT EXISTS post_management.posts (
     num_images smallint CHECK (num_images < 6),
     description varchar(1000),
     post_type post_type NOT NULL,
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    deactivated_at timestamp with time zone DEFAULT NULL
+    created_at timestamp NOT NULL DEFAULT now(),
+    deactivated_at timestamp DEFAULT NULL
 );

@@ -9,7 +9,7 @@ use sqlb::{Fields, HasFields};
 use sqlx::{postgres::PgRow, prelude::FromRow, PgPool};
 use validator::Validate;
 
-#[derive(Deserialize, Serialize, FromRow)]
+#[derive(Deserialize, Serialize, FromRow, Debug)]
 pub struct UserModel {
     pub id: i64,
     pub first_name: String,
@@ -18,9 +18,8 @@ pub struct UserModel {
     pub username: String,
     pub pwd_hash: String,
     pub pwd_salt: String,
-    pub jwt_salt: String,
     pub hash_scheme: HashScheme,
-    pub created_at: chrono::NaiveDate,
+    pub created_at: NaiveDateTime,
     pub deactivated_at: Option<NaiveDateTime>,
 }
 

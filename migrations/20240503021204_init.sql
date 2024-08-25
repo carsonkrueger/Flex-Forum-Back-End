@@ -15,6 +15,6 @@ CREATE TABLE IF NOT EXISTS user_management.users (
     pwd_salt varchar(32) NOT NULL,
     -- jwt_salt varchar(32) NOT NULL,
     hash_scheme hash_scheme NOT NULL,
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    deactivated_at timestamp with time zone DEFAULT NULL
+    created_at timestamp NOT NULL DEFAULT now(),
+    deactivated_at timestamp DEFAULT NULL
 );

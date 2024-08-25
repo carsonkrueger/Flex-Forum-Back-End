@@ -1,6 +1,7 @@
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlb::{Fields, SqlxBindable};
-use sqlx::{prelude::FromRow, types::chrono, PgPool};
+use sqlx::{prelude::FromRow, PgPool};
 
 use super::{base::DbBmc, ModelResult};
 
@@ -31,8 +32,8 @@ pub struct ContentModel {
     pub num_images: i16,
     pub post_type: PostType,
     pub description: Option<String>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub deactivated_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: NaiveDateTime,
+    pub deactivated_at: Option<NaiveDateTime>,
 }
 
 impl DbBmc for ContentModel {
@@ -49,7 +50,7 @@ pub struct CreatePostModel {
 
 pub async fn get_three_older(
     pool: &PgPool,
-    created_at: &chrono::DateTime<chrono::Utc>,
+    created_at: &NaiveDateTime,
 ) -> ModelResult<Vec<ContentModel>> {
     let row = sqlb::select()
         .table(ContentModel::TABLE)
@@ -62,7 +63,7 @@ pub async fn get_three_older(
             "created_at",
             "deactivated_at",
         ])
-        .and_where("created_at", "<", DateTimeUtcWrapper(created_at))
+        .and_where("created_at", "<", DateTimeWrapper(created_at))
         .order_by("!created_at")
         .limit(3)
         .fetch_all::<_, ContentModel>(pool)
@@ -71,9 +72,9 @@ pub async fn get_three_older(
 }
 
 #[derive(Debug)]
-pub struct DateTimeUtcWrapper<'a>(&'a chrono::DateTime<chrono::Utc>);
+pub struct DateTimeWrapper<'a>(&'a NaiveDateTime);
 
-impl SqlxBindable for DateTimeUtcWrapper<'_> {
+impl SqlxBindable for DateTimeWrapper<'_> {
     fn bind_query<'q>(
         &'q self,
         query: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,

@@ -6,8 +6,8 @@ use axum::{
     Json, Router,
 };
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::types::chrono;
 use validator::Validate;
 
 use crate::{
@@ -240,7 +240,7 @@ async fn upload_workout_post(
     Ok(StatusCode::CREATED)
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct PostCard {
     #[serde(flatten)]
     content_model: ContentModel,
@@ -252,7 +252,7 @@ struct PostCard {
 async fn get_post_by_time(
     ctx: Ctx,
     State(s): State<AppState>,
-    Path(created_at): Path<chrono::DateTime<chrono::Utc>>,
+    Path(created_at): Path<NaiveDateTime>,
 ) -> RouterResult<Json<Vec<PostCard>>> {
     let posts = get_three_older(&s.pool, &created_at).await?;
     let mut post_cards: Vec<PostCard> = Vec::with_capacity(3);
@@ -275,6 +275,8 @@ async fn get_post_by_time(
         };
         post_cards.push(card);
     }
+
+    println!("{:?}", post_cards);
 
     Ok(Json(post_cards))
 }
