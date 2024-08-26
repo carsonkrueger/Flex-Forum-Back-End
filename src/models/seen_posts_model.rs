@@ -2,10 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlb::Fields;
 use sqlx::{prelude::FromRow, PgPool};
 
-use super::{
-    base::{self, DbBmc},
-    ModelResult,
-};
+use super::{base::DbBmc, ModelResult};
 
 #[derive(Deserialize, Serialize, FromRow, Debug, Fields)]
 pub struct SeenPostsModel {
@@ -25,11 +22,14 @@ pub struct SeenPostCreateModel {
 }
 
 pub async fn seen(pool: &PgPool, username: &str, post_id: i64) -> ModelResult<()> {
-    let seen = SeenPostCreateModel {
-        post_id,
-        username: username.to_string(),
-    };
-    let e = base::create::<SeenPostsModel, SeenPostCreateModel>(seen, pool).await;
-    println!("{:?}", e);
+    // let e = base::create::<SeenPostsModel, SeenPostCreateModel>(seen, pool).await;
+    let e = sqlx::query_scalar::<_, i64>(&format!(
+        "INSERT INTO {} (post_id, username) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id;",
+        SeenPostsModel::TABLE
+    ))
+    .bind(post_id)
+    .bind(username)
+    .fetch_one(pool)
+    .await?;
     Ok(())
 }
