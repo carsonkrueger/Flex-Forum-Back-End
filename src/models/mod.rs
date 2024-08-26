@@ -5,6 +5,7 @@ pub mod following_model;
 pub mod interactions_matrix_model;
 pub mod likes_model;
 pub mod profile_picture_model;
+pub mod seen_posts_model;
 pub mod user_model;
 
 pub type ModelResult<T> = std::result::Result<T, ModelError>;

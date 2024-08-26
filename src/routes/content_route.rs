@@ -8,19 +8,23 @@ use axum::{
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+use sqlb::Fields;
 use validator::Validate;
 
 use crate::{
     libs::ctx::Ctx,
     models::{
-        base,
-        content_model::{self, get_three_older, ContentModel, PostType},
+        base::{self},
+        content_model::{self, get_ten_unseen_older, get_three_older, ContentModel, PostType},
         following_model::{is_following, FollowingModel},
         likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
         profile_picture_model::ProfilePictureModel,
+        seen_posts_model::seen,
+        user_model::get_user_id,
     },
     services::{
         multipart::validate_content_type,
+        posts::sort_by_predicted,
         s3::{s3_delete_post, s3_download_post, s3_upload_post, s3_upload_profile_picture},
     },
     AppState,
@@ -145,6 +149,12 @@ async fn upload_images_post(
         res?;
     }
 
+    s.ndarray_app_state
+        .lock()
+        .unwrap()
+        .add_post(post_id)
+        .unwrap();
+
     transaction.commit().await?;
 
     Ok(StatusCode::CREATED)
@@ -254,8 +264,25 @@ async fn get_post_by_time(
     State(s): State<AppState>,
     Path(created_at): Path<NaiveDateTime>,
 ) -> RouterResult<Json<Vec<PostCard>>> {
-    let posts = get_three_older(&s.pool, &created_at).await?;
-    let mut post_cards: Vec<PostCard> = Vec::with_capacity(3);
+    // let posts = get_three_older(&s.pool, &created_at).await?;
+    let mut posts = get_ten_unseen_older(&s.pool, &created_at, ctx.jwt().username()).await?;
+    let user_id = get_user_id(ctx.jwt().username(), &s.pool).await?.unwrap();
+    // .unwrap_or(Err(RouteError::Unauthorized)?);
+
+    if posts.len() > 0 {
+        sort_by_predicted(&mut posts, &s, 3, user_id);
+
+        // mark all posts as seen so that they do not get recommended again
+        for p in &posts {
+            seen(&s.pool, ctx.jwt().username(), p.id).await?;
+        }
+    }
+    // if the posts length is 0 then they have seen all recommended posts, so just give them older seen content again
+    else {
+        posts = get_three_older(&s.pool, &created_at).await?;
+    }
+
+    let mut post_cards: Vec<PostCard> = Vec::with_capacity(posts.len());
 
     for i in 0..posts.len() {
         let post_id = posts[i].id;
@@ -289,6 +316,7 @@ async fn like_post(
         username: ctx.jwt().username().to_string(),
     };
     super::models::base::create::<LikesModel, LikePost>(like, &s.pool).await?;
+    seen(&s.pool, ctx.jwt().username(), post_id).await?;
     Ok(())
 }
 
@@ -350,17 +378,22 @@ async fn upload_profile_picture(
     Ok(())
 }
 
+#[derive(Deserialize, Fields)]
+pub struct FollowingCreateModel {
+    follower: String,
+    following: String,
+}
+
 async fn follow_user(
     ctx: Ctx,
     State(s): State<AppState>,
     Path(following): Path<String>,
 ) -> RouterResult<()> {
-    let follow = FollowingModel {
-        id: 0,
+    let follow = FollowingCreateModel {
         follower: ctx.jwt().username().to_string(),
         following,
     };
-    super::models::base::create::<FollowingModel, FollowingModel>(follow, &s.pool).await?;
+    super::models::base::create::<FollowingModel, FollowingCreateModel>(follow, &s.pool).await?;
     Ok(())
 }
 

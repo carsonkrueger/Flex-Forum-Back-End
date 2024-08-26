@@ -52,7 +52,7 @@ pub struct SignUpModel {
 pub async fn sign_up(
     State(s): State<AppState>,
     Json(mut body): Json<SignUpModel>,
-) -> impl IntoResponse {
+) -> RouterResult<StatusCode> {
     if let Err(e) = body.validate() {
         return Err(RouteError::Validation(e.to_string()));
     }
@@ -78,7 +78,12 @@ pub async fn sign_up(
         hash_scheme: hasher.into(),
     };
 
-    super::models::base::create::<UserModel, _>(create_model, &s.pool).await?;
+    let user_id = super::models::base::create::<UserModel, _>(create_model, &s.pool).await?;
+    s.ndarray_app_state
+        .lock()
+        .expect("err locking")
+        .add_user(user_id)
+        .expect("err adding user");
 
     Ok(StatusCode::CREATED)
 }

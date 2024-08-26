@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use self::{auth_route::AuthRoute, hello_world::HelloWorldRoute, users_route::UserRoute};
 use crate::{
@@ -64,7 +64,7 @@ pub trait NestedRoute<S> {
 pub struct AppState {
     pub pool: Pool<Postgres>,
     pub s3_client: aws_sdk_s3::Client,
-    pub models: Arc<NDArrayAppState>,
+    pub ndarray_app_state: Arc<Mutex<NDArrayAppState>>,
 }
 
 pub fn create_routes(app_state: AppState) -> Router {

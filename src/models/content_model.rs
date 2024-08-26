@@ -63,7 +63,7 @@ pub async fn get_three_older(
             "created_at",
             "deactivated_at",
         ])
-        .and_where("created_at", "<", DateTimeWrapper(created_at))
+        .and_where("created_at", "<", NaiveDateTimeWrapper(created_at))
         .order_by("!created_at")
         .limit(3)
         .fetch_all::<_, ContentModel>(pool)
@@ -71,10 +71,46 @@ pub async fn get_three_older(
     Ok(row)
 }
 
-#[derive(Debug)]
-pub struct DateTimeWrapper<'a>(&'a NaiveDateTime);
+pub async fn get_ten_unseen_older<'q>(
+    pool: &PgPool,
+    created_at: &NaiveDateTime,
+    username: &str,
+) -> ModelResult<Vec<ContentModel>> {
+    let rows = sqlx::query_as::<_, ContentModel>(&format!(
+        "
+        SELECT
+            id,
+            username,
+            num_images,
+            description,
+            post_type,
+            created_at,
+            deactivated_at
+        FROM post_management.posts p
+        WHERE
+            NOT EXISTS (
+                SELECT 1
+                FROM post_management.seen_posts s
+                WHERE s.post_id = p.id
+                AND s.username = $1
+            )
+            AND
+            p.created_at < $2
+        ORDER BY p.created_at DESC
+        LIMIT 10;
+        ",
+    ))
+    .bind(username)
+    .bind(created_at)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
 
-impl SqlxBindable for DateTimeWrapper<'_> {
+#[derive(Debug)]
+pub struct NaiveDateTimeWrapper<'a>(&'a NaiveDateTime);
+
+impl SqlxBindable for NaiveDateTimeWrapper<'_> {
     fn bind_query<'q>(
         &'q self,
         query: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,

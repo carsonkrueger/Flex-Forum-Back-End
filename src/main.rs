@@ -3,7 +3,11 @@ use dotenvy::dotenv;
 use routes::AppState;
 use services::ndarray::load_models;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-use std::{env, sync::Arc, time::Duration};
+use std::{
+    env,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tower_http::cors::{Any, CorsLayer};
 
 mod libs;
@@ -31,7 +35,7 @@ async fn main() {
     let n_observations = 2;
     let alpha = 0.05;
     let lambda = 0.1;
-    let epochs = 50;
+    let epochs = 10;
 
     let mut ndarray_app_state =
         load_models(&pool, alpha, lambda, epochs, k_features, n_observations).await;
@@ -40,7 +44,7 @@ async fn main() {
     let app_state = AppState {
         pool,
         s3_client,
-        models: Arc::new(ndarray_app_state),
+        ndarray_app_state: Arc::new(Mutex::new(ndarray_app_state)),
     };
     let router = routes::create_routes(app_state).layer(cors);
 

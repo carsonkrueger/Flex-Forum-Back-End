@@ -88,3 +88,14 @@ where
 
     Ok(entities)
 }
+
+pub async fn get_user_id(username: &str, db: &PgPool) -> ModelResult<Option<i64>> {
+    let id = sqlx::query_scalar::<_, i64>(&format!(
+        "SELECT id FROM {} WHERE username = $1",
+        UserModel::TABLE
+    ))
+    .bind(username)
+    .fetch_optional(db)
+    .await?;
+    Ok(id)
+}
