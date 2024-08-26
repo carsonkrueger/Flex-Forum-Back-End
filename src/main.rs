@@ -39,7 +39,7 @@ async fn main() {
 
     let mut ndarray_app_state =
         load_models(&pool, alpha, lambda, epochs, k_features, n_observations).await;
-    ndarray_app_state.train(alpha, lambda, epochs, k_features);
+    ndarray_app_state.train();
 
     let app_state = AppState {
         pool,

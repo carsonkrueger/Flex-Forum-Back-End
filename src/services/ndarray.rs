@@ -92,39 +92,37 @@ pub async fn load_models(
 }
 
 impl NDArrayAppState {
-    pub fn train(&mut self, alpha: f32, lambda: f32, epochs: usize, k: usize) {
-        // let emb_shape = models.user_embeddings.shape();
-        let a_shape = self.interactions_actual.shape();
-        // let start = std::time::Instant::now();
+    pub fn train(&mut self) {
+        let a_shape = self.interactions_actual.shape().to_vec();
 
-        for _ in 0..epochs {
+        for _ in 0..self.epochs {
             for u_idx in 0..a_shape[0] {
                 for p_idx in 0..a_shape[1] {
-                    for int_idx in 0..a_shape[2] {
-                        let predicted_interaction = self
-                            .user_embeddings
-                            .row(u_idx)
-                            .dot(&self.post_embeddings.row(p_idx));
-                        let error = self.interactions_actual[(u_idx, p_idx, int_idx)]
-                            - predicted_interaction;
-
-                        for f in 0..k {
-                            self.user_embeddings[(u_idx, f)] += alpha
-                                * (error * self.post_embeddings[(p_idx, f)]
-                                    - lambda * self.user_embeddings[(u_idx, f)]);
-                            self.post_embeddings[(p_idx, f)] += alpha
-                                * (error * self.user_embeddings[(u_idx, f)]
-                                    - lambda * self.post_embeddings[(p_idx, f)]);
-                        }
-                    }
+                    self.update_embeddings(u_idx, p_idx);
                 }
             }
         }
+    }
 
-        // println!("Training finished. Time elapsed: {:?}", start.elapsed());
-        // println!("User embedding: {:?}\n", self.user_embeddings);
-        // println!("Post embedding: {:?}\n", self.post_embeddings);
-        // println!("Actual: {:?}\n", self.interactions_actual);
+    fn update_embeddings(&mut self, u_idx: usize, p_idx: usize) {
+        let int_shape = self.interactions_actual.shape()[2];
+        for int_idx in 0..int_shape {
+            let predicted_interaction = self
+                .user_embeddings
+                .row(u_idx)
+                .dot(&self.post_embeddings.row(p_idx));
+
+            let error = self.interactions_actual[(u_idx, p_idx, int_idx)] - predicted_interaction;
+
+            for f in 0..self.k {
+                self.user_embeddings[(u_idx, f)] += self.alpha
+                    * (error * self.post_embeddings[(p_idx, f)]
+                        - self.lambda * self.user_embeddings[(u_idx, f)]);
+                self.post_embeddings[(p_idx, f)] += self.alpha
+                    * (error * self.user_embeddings[(u_idx, f)]
+                        - self.lambda * self.post_embeddings[(p_idx, f)]);
+            }
+        }
     }
 
     pub fn predict(&self, user_id: i64, post_id: i64) -> f32 {
