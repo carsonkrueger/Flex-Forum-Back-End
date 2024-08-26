@@ -7,7 +7,7 @@ use crate::{
         logger_mw::logger,
     },
     models,
-    services::tensor::TensorAppState,
+    services::ndarray::NDArrayAppState,
 };
 use aws_sdk_s3::{
     error::SdkError,
@@ -25,7 +25,6 @@ use axum::{
 use content_route::ContentRoute;
 use exercise_preset_route::ExercisePresetRoute;
 use sqlx::{Pool, Postgres};
-use tensorflow::Tensor;
 use tower_cookies::CookieManagerLayer;
 
 mod auth_route;
@@ -65,7 +64,7 @@ pub trait NestedRoute<S> {
 pub struct AppState {
     pub pool: Pool<Postgres>,
     pub s3_client: aws_sdk_s3::Client,
-    pub models: Arc<TensorAppState>,
+    pub models: Arc<NDArrayAppState>,
 }
 
 pub fn create_routes(app_state: AppState) -> Router {

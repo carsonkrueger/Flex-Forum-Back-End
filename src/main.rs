@@ -1,14 +1,9 @@
 use aws_sdk_s3::config::Credentials;
 use dotenvy::dotenv;
-use itertools::Itertools;
-use models::{
-    content_model::ContentModel, interactions_matrix_model::build_model, user_model::UserModel,
-};
 use routes::AppState;
-use services::tensor::TensorAppState;
+use services::ndarray::load_models;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{env, sync::Arc, time::Duration};
-use tensorflow::Tensor;
 use tower_http::cors::{Any, CorsLayer};
 
 mod libs;
@@ -33,18 +28,19 @@ async fn main() {
         .allow_headers(Any);
 
     let k_features = 10;
-    let (u_embeddings, v_embeddings, a) = load_models(&pool, k_features).await;
+    let n_observations = 2;
+    let alpha = 0.05;
+    let lambda = 0.1;
+    let epochs = 50;
 
-    let tensor_app_state = TensorAppState {
-        user_embeddings: u_embeddings,
-        post_embeddings: v_embeddings,
-        interactions: a,
-    };
+    let mut ndarray_app_state =
+        load_models(&pool, alpha, lambda, epochs, k_features, n_observations).await;
+    ndarray_app_state.train(alpha, lambda, epochs, k_features);
 
     let app_state = AppState {
         pool,
         s3_client,
-        models: Arc::new(tensor_app_state),
+        models: Arc::new(ndarray_app_state),
     };
     let router = routes::create_routes(app_state).layer(cors);
 
@@ -84,43 +80,4 @@ async fn create_s3_client() -> aws_sdk_s3::Client {
         .load()
         .await;
     aws_sdk_s3::Client::new(&config)
-}
-
-/// -> (u, v, a)
-async fn load_models(pg_pool: &Pool<Postgres>, k: u64) -> (Tensor<f32>, Tensor<f32>, Tensor<f32>) {
-    let join_query = build_model(pg_pool)
-        .await
-        .expect("Could not query for interactions matrix model");
-
-    println!("{:?}", join_query);
-
-    let u_count = join_query
-        .iter()
-        .unique_by(|q| q.user_id)
-        .collect::<Vec<_>>()
-        .len() as u64;
-    let v_count = join_query
-        .iter()
-        .unique_by(|q| q.post_id)
-        .collect::<Vec<_>>()
-        .len() as u64;
-
-    println!("{}-{}", u_count, v_count);
-
-    let id_start = 1000;
-    let u = Tensor::new(&[u_count, k]);
-    let v = Tensor::new(&[v_count, k]);
-    let mut a = Tensor::<f32>::new(&[u_count, v_count, 2]);
-
-    // fills the tensor
-    for i in 0..join_query.len() {
-        let u_index = (join_query[i].user_id - id_start) as u64;
-        let v_index = (join_query[i].post_id - id_start) as u64;
-        a.set(&[u_index, v_index, 0], join_query[i].is_liked as f32);
-        a.set(&[u_index, v_index, 1], join_query[i].is_following as f32);
-    }
-
-    println!("{:?}", a);
-
-    (u, v, a)
 }
