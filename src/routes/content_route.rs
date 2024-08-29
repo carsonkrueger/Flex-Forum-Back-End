@@ -45,8 +45,6 @@ impl NestedRoute<AppState> for ContentRoute {
             .route("/like/:post_id", post(like_post))
             .route("/like/:post_id", delete(unlike_post))
             .route("/profile-picture", post(upload_profile_picture))
-            .route("/follow/:following", post(follow_user))
-            .route("/follow/:following", delete(unfollow_user))
     }
 }
 
@@ -375,40 +373,5 @@ async fn upload_profile_picture(
 
     transaction.commit().await?;
 
-    Ok(())
-}
-
-#[derive(Deserialize, Fields)]
-pub struct FollowingCreateModel {
-    follower: String,
-    following: String,
-}
-
-async fn follow_user(
-    ctx: Ctx,
-    State(s): State<AppState>,
-    Path(following): Path<String>,
-) -> RouterResult<()> {
-    let follow = FollowingCreateModel {
-        follower: ctx.jwt().username().to_string(),
-        following,
-    };
-    super::models::base::create::<FollowingModel, FollowingCreateModel>(follow, &s.pool).await?;
-    Ok(())
-}
-
-async fn unfollow_user(
-    ctx: Ctx,
-    State(s): State<AppState>,
-    Path(following): Path<String>,
-) -> RouterResult<()> {
-    super::models::base::delete_with_both::<FollowingModel, _, _>(
-        "follower",
-        ctx.jwt().username(),
-        "following",
-        following,
-        &s.pool,
-    )
-    .await?;
     Ok(())
 }

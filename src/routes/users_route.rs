@@ -3,6 +3,7 @@ use super::RouterResult;
 use crate::libs::ctx::Ctx;
 use crate::middleware::auth_mw::AUTH_TOKEN;
 use crate::models::base;
+use crate::models::following_model::FollowingModel;
 use crate::models::user_model;
 use crate::models::user_model::UserModel;
 use crate::services::auth::check_username;
@@ -12,6 +13,7 @@ use axum::routing::delete;
 use axum::routing::get;
 use axum::Router;
 use axum::{extract::State, Json};
+use serde::Deserialize;
 use serde::Serialize;
 use sqlb::Fields;
 use sqlx::prelude::FromRow;
@@ -27,6 +29,8 @@ impl NestedRoute<AppState> for UserRoute {
             .route("/:username", get(get_user))
             .route("/list/:username", get(list_users))
             .route("/delete/:id", delete(delete_user))
+            .route("/follow/:following", post(follow_user))
+            .route("/follow/:following", delete(unfollow_user))
     }
 }
 
@@ -73,5 +77,40 @@ pub async fn delete_user(
     base::delete::<UserModel, &str>("username", &username, &s.pool).await?;
     cookies.remove(Cookie::from(AUTH_TOKEN));
 
+    Ok(())
+}
+
+#[derive(Deserialize, Fields)]
+pub struct FollowingCreateModel {
+    follower: String,
+    following: String,
+}
+
+async fn follow_user(
+    ctx: Ctx,
+    State(s): State<AppState>,
+    Path(following): Path<String>,
+) -> RouterResult<()> {
+    let follow = FollowingCreateModel {
+        follower: ctx.jwt().username().to_string(),
+        following,
+    };
+    super::models::base::create::<FollowingModel, FollowingCreateModel>(follow, &s.pool).await?;
+    Ok(())
+}
+
+async fn unfollow_user(
+    ctx: Ctx,
+    State(s): State<AppState>,
+    Path(following): Path<String>,
+) -> RouterResult<()> {
+    super::models::base::delete_with_both::<FollowingModel, _, _>(
+        "follower",
+        ctx.jwt().username(),
+        "following",
+        following,
+        &s.pool,
+    )
+    .await?;
     Ok(())
 }
