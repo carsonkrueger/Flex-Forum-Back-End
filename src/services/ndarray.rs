@@ -1,4 +1,3 @@
-use core::time;
 use std::collections::HashMap;
 
 use itertools::Itertools;
@@ -24,7 +23,6 @@ pub struct NDArrayAppState {
     next_p_index: usize,
 }
 
-/// -> (u, v, a predicted, a observed)
 pub async fn load_models(
     pg_pool: &Pool<Postgres>,
     alpha: f32,
@@ -36,8 +34,6 @@ pub async fn load_models(
     let join_result = build_model(pg_pool)
         .await
         .expect("Could not query for interactions matrix model");
-
-    // println!("{:?}", join_result);
 
     let u_count = join_result
         .iter()
@@ -60,11 +56,11 @@ pub async fn load_models(
     let mut next_v_index = 0;
 
     for i in 0..join_result.len() {
-        if (!user_index_hashmap.contains_key(&join_result[i].user_id)) {
+        if !user_index_hashmap.contains_key(&join_result[i].user_id) {
             user_index_hashmap.insert(join_result[i].user_id, next_u_index);
             next_u_index += 1;
         }
-        if (!post_index_hashmap.contains_key(&join_result[i].post_id)) {
+        if !post_index_hashmap.contains_key(&join_result[i].post_id) {
             post_index_hashmap.insert(join_result[i].post_id, next_v_index);
             next_v_index += 1;
         }
