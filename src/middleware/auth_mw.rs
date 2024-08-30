@@ -34,8 +34,11 @@ pub async fn ctx_resolver(
 ) -> RouterResult<Response> {
     let token_str = cookies.get(AUTH_TOKEN).map(|c| c.value().to_string());
 
-    let result_ctx = match token_str {
-        Some(t) => Ok(JWT::parse_token(t)),
+    let result_ctx: Result<Ctx, RouteError> = match token_str {
+        Some(t) => match JWT::parse_token(t) {
+            Ok(jwt) => Ok(Ctx::new(jwt)),
+            Err(e) => Err(RouteError::JWTError(e)),
+        },
         None => Err(RouteError::MissingAuthCookie),
     };
 
