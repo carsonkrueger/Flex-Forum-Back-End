@@ -24,7 +24,7 @@ pub struct SeenPostCreateModel {
 
 pub async fn seen(pool: &PgPool, username: &str, post_id: i64) -> ModelResult<()> {
     // let e = base::create::<SeenPostsModel, SeenPostCreateModel>(seen, pool).await;
-    let e = sqlx::query_scalar::<_, i64>(&format!(
+    let _id = sqlx::query_scalar::<_, i64>(&format!(
         "INSERT INTO {} (post_id, username) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id;",
         SeenPostsModel::TABLE
     ))

@@ -139,6 +139,7 @@ where
 }
 
 // Updates the given fields with the given id, returning the number of rows affected.
+#[allow(unused)]
 pub async fn update<MC: DbBmc, E: HasFields>(
     id: i64,
     data: E,
@@ -221,6 +222,7 @@ where
     Ok(entity)
 }
 
+#[allow(unused)]
 pub async fn count_where<MC: DbBmc>(
     db: &Pool<Postgres>,
     column: &str,
@@ -240,6 +242,7 @@ pub async fn count_where<MC: DbBmc>(
     Ok(count)
 }
 
+#[allow(unused)]
 pub async fn count<MC: DbBmc>(db: &Pool<Postgres>) -> ModelResult<i64> {
     let count = sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(id) FROM {};", MC::TABLE,))
         .fetch_one(db)

@@ -15,11 +15,6 @@ use crate::models::content_model::PostType;
 const IMAGE_BUCKET: &str = "flexforumimages1";
 const WORKOUT_BUCKET: &str = "flexforumworkouts1";
 
-pub enum FlexForumBucket {
-    ImageBucket1,
-    WorkoutBucket1,
-}
-
 impl From<PostType> for String {
     fn from(value: PostType) -> Self {
         match value {
