@@ -1,11 +1,11 @@
 [package]
-name = "lib-ctx"
+name = "lib-models"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lib-jwt = { path = "../lib-jwt" }
+sqlx = { version = "0.7.4" }
 
 [lib]
-name = "lib_ctx"
+name = "lib_models"
 path = "lib.rs"

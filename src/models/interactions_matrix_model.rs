@@ -1,7 +1,6 @@
+use lib_models::error::ModelResult;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, PgPool};
-
-use super::ModelResult;
 
 #[derive(Deserialize, Serialize, FromRow, Debug)]
 pub struct InteractionsMatrixModel {

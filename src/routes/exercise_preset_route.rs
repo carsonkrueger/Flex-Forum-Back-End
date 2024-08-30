@@ -1,11 +1,14 @@
 use axum::{extract::State, routing::get, Json, Router};
+use lib_routes::error::RouterResult;
 use serde::Serialize;
 use sqlb::Fields;
 use sqlx::prelude::FromRow;
 
 use crate::models::exercise_preset_model::ExercisePresetModel;
 
-use super::{AppState, NestedRoute, RouterResult};
+use lib_routes::nested_route::NestedRoute;
+
+use super::AppState;
 
 pub struct ExercisePresetRoute;
 

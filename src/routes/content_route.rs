@@ -7,30 +7,29 @@ use axum::{
 };
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
 use chrono::NaiveDateTime;
+use ctx::Ctx;
+use lib_multipart::validate_content_type;
+use lib_routes::error::{RouteError, RouterResult};
+// use ctx::Ctx;
 use serde::{Deserialize, Serialize};
-use sqlb::Fields;
 use validator::Validate;
 
 use crate::{
-    libs::ctx::Ctx,
     models::{
         base::{self},
-        content_model::{self, get_ten_unseen_older, get_three_older, ContentModel, PostType},
-        following_model::{is_following, FollowingModel},
+        content_model::{
+            self, get_ten_unseen_older, get_three_older, sort_by_predicted, ContentModel, PostType,
+        },
+        following_model::is_following,
         likes_model::{get_num_likes, is_liked, LikePost, LikesModel},
         profile_picture_model::ProfilePictureModel,
         seen_posts_model::seen,
         user_model::get_user_id,
     },
-    services::{
-        multipart::validate_content_type,
-        posts::sort_by_predicted,
-        s3::{s3_delete_post, s3_download_post, s3_upload_post, s3_upload_profile_picture},
-    },
+    services::s3::{s3_delete_post, s3_download_post, s3_upload_post, s3_upload_profile_picture},
     AppState,
 };
-
-use super::{NestedRoute, RouteError, RouterResult};
+use lib_routes::nested_route::NestedRoute;
 
 pub struct ContentRoute;
 
@@ -270,12 +269,13 @@ async fn get_post_by_time(
     if posts.len() > 0 {
         sort_by_predicted(&mut posts, &s, 3, user_id);
 
-        // mark all posts as seen so that they do not get recommended again
+        // Mark all posts as seen so that they do not get recommended again.
+        // Will likely change in the future so that interactions will only count as seen, or number of times recommended.
         for p in &posts {
             seen(&s.pool, ctx.jwt().username(), p.id).await?;
         }
     }
-    // if the posts length is 0 then they have seen all recommended posts, so just give them older seen content again
+    // if the posts length is 0 then they have seen all recommended posts, so just give them older already seen content again
     else {
         posts = get_three_older(&s.pool, &created_at).await?;
     }

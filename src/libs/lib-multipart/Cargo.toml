@@ -1,0 +1,12 @@
+[package]
+name = "lib-multipart"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.7.5" }
+axum_typed_multipart = "0.11.1"
+
+[lib]
+name = "lib_multipart"
+path = "lib.rs"

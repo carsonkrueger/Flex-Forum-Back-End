@@ -1,7 +1,6 @@
+use lib_models::error::ModelResult;
 use sqlb::{HasFields, SqlxBindable};
 use sqlx::{postgres::PgRow, FromRow, Pool, Postgres, Transaction};
-
-use super::ModelResult;
 
 pub trait DbBmc {
     const TABLE: &'static str;

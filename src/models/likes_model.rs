@@ -1,11 +1,9 @@
+use lib_models::error::ModelResult;
 use serde::{Deserialize, Serialize};
 use sqlb::Fields;
 use sqlx::{prelude::FromRow, PgPool};
 
-use super::{
-    base::{self, DbBmc},
-    ModelResult,
-};
+use super::base::{self, DbBmc};
 
 #[derive(Deserialize, Serialize, FromRow, Debug, Fields)]
 pub struct LikesModel {

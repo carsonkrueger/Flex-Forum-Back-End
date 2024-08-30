@@ -1,7 +1,6 @@
 use crate::AppState;
-
-use super::NestedRoute;
 use axum::{routing::get, Router};
+use lib_routes::nested_route::NestedRoute;
 
 pub struct HelloWorldRoute;
 

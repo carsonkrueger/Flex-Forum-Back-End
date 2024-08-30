@@ -1,4 +1,4 @@
-use crate::routes::{RouteError, RouterResult};
+use lib_routes::error::{RouteError, RouterResult};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use validator::Validate;

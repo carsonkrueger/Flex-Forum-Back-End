@@ -1,6 +1,3 @@
-use super::NestedRoute;
-use super::{RouteError, RouterResult};
-use crate::libs::jwt::{JWT, JWT_LIFE_IN_MINUTES};
 use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
 use crate::middleware::auth_mw::{AUTH_TOKEN, JWT_SECRET};
 use crate::models::user_model::{username_or_email_exists, CreateUserModel, UserModel};
@@ -9,8 +6,11 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::routing::post;
 use axum::{Json, Router};
+use jwt::{JWT, JWT_LIFE_IN_MINUTES};
 use lib_hash::hash_scheme::{HashScheme, Hasher};
 use lib_hash::hashers::argon2_v01::Argon2V01;
+use lib_routes::error::{RouteError, RouterResult};
+use lib_routes::nested_route::NestedRoute;
 use serde::Deserialize;
 use sqlb::Fields;
 use sqlx::prelude::FromRow;

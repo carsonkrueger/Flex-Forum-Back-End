@@ -1,9 +1,13 @@
 use chrono::NaiveDateTime;
+use itertools::Itertools;
+use lib_models::error::ModelResult;
 use serde::{Deserialize, Serialize};
 use sqlb::{Fields, SqlxBindable};
 use sqlx::{prelude::FromRow, PgPool};
 
-use super::{base::DbBmc, ModelResult};
+use crate::routes::AppState;
+
+use super::base::DbBmc;
 
 #[derive(sqlx::Type, Debug, Serialize, Deserialize, Clone)]
 #[sqlx(type_name = "post_type")]
@@ -117,4 +121,30 @@ impl SqlxBindable for NaiveDateTimeWrapper<'_> {
     ) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {
         query.bind(self.0)
     }
+}
+
+pub fn sort_by_predicted(
+    posts: &mut Vec<ContentModel>,
+    s: &AppState,
+    num_taken: usize,
+    user_id: i64,
+) {
+    let post_ids = posts.iter().map(|p| p.id).collect::<Vec<_>>();
+    let predictions = s
+        .ndarray_app_state
+        .lock()
+        .expect("err locking")
+        .predict_all(user_id, &post_ids);
+
+    let zipped = posts.iter().zip(predictions.iter()).collect::<Vec<_>>();
+    *posts = zipped
+        .iter()
+        .sorted_by(|a, b| {
+            b.1 .1
+                .partial_cmp(&a.1 .1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|&(x, _)| x.clone())
+        .take(num_taken)
+        .collect::<Vec<_>>();
 }

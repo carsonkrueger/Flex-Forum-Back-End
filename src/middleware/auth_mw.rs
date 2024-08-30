@@ -1,18 +1,12 @@
 use std::env;
 
-use axum::{
-    async_trait,
-    body::Body,
-    extract::{FromRequestParts, Request},
-    http::request::Parts,
-    middleware::Next,
-    response::Response,
-};
+use axum::{body::Body, extract::Request, middleware::Next, response::Response};
+use lib_routes::error::{RouteError, RouterResult};
 use once_cell::sync::Lazy;
 use tower_cookies::{Cookie, Cookies};
 
-use crate::libs::{ctx::Ctx, jwt::JWT};
-use crate::routes::{RouteError, RouterResult};
+use ctx::Ctx;
+use jwt::JWT;
 
 pub const AUTH_TOKEN: &'static str = "auth_token";
 pub const JWT_SECRET: Lazy<String> = Lazy::new(get_jwt_secret);
@@ -40,12 +34,9 @@ pub async fn ctx_resolver(
 ) -> RouterResult<Response> {
     let token_str = cookies.get(AUTH_TOKEN).map(|c| c.value().to_string());
 
-    let result_ctx = match token_str
-        .ok_or(RouteError::MissingAuthCookie)
-        .and_then(JWT::parse_token)
-    {
-        Ok(jwt) => Ok(Ctx::new(jwt)),
-        Err(e) => Err(e),
+    let result_ctx = match token_str {
+        Some(t) => Ok(JWT::parse_token(t)),
+        None => Err(RouteError::MissingAuthCookie),
     };
 
     if result_ctx.is_err() && !matches!(result_ctx, Err(RouteError::MissingAuthCookie)) {
@@ -54,18 +45,4 @@ pub async fn ctx_resolver(
 
     req.extensions_mut().insert(result_ctx);
     Ok(next.run(req).await)
-}
-
-#[async_trait]
-impl<S: Send + Sync> FromRequestParts<S> for Ctx {
-    type Rejection = RouteError;
-
-    #[allow(clippy::type_complexity, clippy::type_repetition_in_bounds)]
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> RouterResult<Self> {
-        parts
-            .extensions
-            .get::<RouterResult<Ctx>>()
-            .ok_or(RouteError::InvalidAuth)?
-            .clone()
-    }
 }

@@ -1,12 +1,8 @@
-use super::NestedRoute;
-use super::RouterResult;
-use crate::libs::ctx::Ctx;
 use crate::middleware::auth_mw::AUTH_TOKEN;
 use crate::models::base;
 use crate::models::following_model::FollowingModel;
 use crate::models::user_model;
 use crate::models::user_model::UserModel;
-use crate::services::auth::check_username;
 use crate::AppState;
 use axum::extract::Path;
 use axum::routing::delete;
@@ -14,6 +10,9 @@ use axum::routing::get;
 use axum::routing::post;
 use axum::Router;
 use axum::{extract::State, Json};
+use ctx::Ctx;
+use lib_routes::error::RouterResult;
+use lib_routes::nested_route::NestedRoute;
 use serde::Deserialize;
 use serde::Serialize;
 use sqlb::Fields;
@@ -29,7 +28,7 @@ impl NestedRoute<AppState> for UserRoute {
         Router::new()
             .route("/:username", get(get_user))
             .route("/list/:username", get(list_users))
-            .route("/delete/:id", delete(delete_user))
+            .route("/delete", delete(delete_user))
             .route("/follow/:following", post(follow_user))
             .route("/follow/:following", delete(unfollow_user))
     }
@@ -70,12 +69,9 @@ pub async fn list_users(
 pub async fn delete_user(
     ctx: Ctx,
     cookies: Cookies,
-    Path(username): Path<String>,
     State(s): State<AppState>,
 ) -> RouterResult<()> {
-    check_username(&username, ctx.jwt())?;
-
-    base::delete::<UserModel, &str>("username", &username, &s.pool).await?;
+    base::delete::<UserModel, &str>("username", ctx.jwt().username(), &s.pool).await?;
     cookies.remove(Cookie::from(AUTH_TOKEN));
 
     Ok(())

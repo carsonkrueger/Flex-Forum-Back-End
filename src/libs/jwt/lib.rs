@@ -1,7 +1,9 @@
-use crate::routes::{RouteError, RouterResult};
+pub mod error;
 
 use chrono::{DateTime, TimeDelta, Utc};
 use lib_hash::{error::HashError, hash_scheme::HashScheme};
+
+use crate::error::{JWTError, JWTResult};
 
 pub const JWT_DATE_FORMAT: &'static str = "%Y/%m/%d_%H/%M/%S_%z";
 pub const JWT_LIFE_IN_MINUTES: i64 = 60;
@@ -16,7 +18,7 @@ pub struct JWT {
 #[allow(unused)]
 impl JWT {
     const JWT_HASH_SCHEME: HashScheme = HashScheme::Argon2V02;
-    pub fn new(username: String, key: &str) -> RouterResult<JWT> {
+    pub fn new(username: String, key: &str) -> JWTResult<JWT> {
         let expires = Utc::now()
             .checked_add_signed(TimeDelta::minutes(JWT_LIFE_IN_MINUTES))
             .unwrap();
@@ -31,7 +33,7 @@ impl JWT {
 
         Ok(jwt)
     }
-    pub fn sign(&mut self, salt: &str) -> RouterResult<()> {
+    pub fn sign(&mut self, salt: &str) -> JWTResult<()> {
         let pwd = self.as_pwd();
         let hasher = Self::JWT_HASH_SCHEME.hasher();
         let hash = hasher.hash_with_salt(&pwd, salt)?;
@@ -41,13 +43,13 @@ impl JWT {
     }
     /// Parses auth_token string into its 3 parts separated by a '.'
     /// (Does not validate the hash)
-    pub fn parse_token(token_str: String) -> RouterResult<JWT> {
+    pub fn parse_token(token_str: String) -> JWTResult<JWT> {
         let split = token_str.split(".");
         let parts: Vec<&str> = split.clone().take(3).collect();
 
         // split should only contain 3 different parts
         if parts.len() != 3 {
-            return Err(RouteError::InvalidAuth);
+            return Err(JWTError::InvalidJWT);
         }
 
         let username = parts[0].to_owned();
@@ -67,10 +69,10 @@ impl JWT {
         Ok(jwt)
     }
     /// Validates the jwt using the secret key and the hash, returning true if valid
-    pub fn validate_token(&self, salt: &String) -> RouterResult<()> {
+    pub fn validate_token(&self, salt: &String) -> JWTResult<()> {
         let now = chrono::Utc::now();
         if self.expires <= now {
-            return Err(RouteError::ExpiredAuthToken);
+            return Err(JWTError::ExpiredJWT);
         }
 
         let pwd = self.as_pwd();
@@ -80,14 +82,14 @@ impl JWT {
             salt,
             self.signature
                 .as_ref()
-                .ok_or(RouteError::MissingJWTSignature)?,
+                .ok_or(JWTError::MissingJWTSignature)?,
         );
 
         match hash_result {
             Err(HashError::Argon2Error(argon2::password_hash::Error::Password)) => {
-                return Err(RouteError::InvalidAuth)
+                return Err(JWTError::InvalidJWT)
             }
-            Err(_) => return Err(RouteError::HashError),
+            Err(_) => return Err(JWTError::HashError),
             _ => (),
         }
 

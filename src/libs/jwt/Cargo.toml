@@ -1,12 +1,13 @@
 [package]
-name = "lib-jwt"
+name = "jwt"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 lib-hash = { path = "../lib-hash" }
 chrono = { version = "0.4.38", features = ["serde"] }
+argon2 = "0.5.3"
 
 [lib]
-name = "lib_jwt"
+name = "jwt"
 path = "lib.rs"

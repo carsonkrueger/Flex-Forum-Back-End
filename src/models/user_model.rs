@@ -1,9 +1,7 @@
-use super::{
-    base::{self, DbBmc},
-    ModelResult,
-};
+use super::base::{self, DbBmc};
 use chrono::NaiveDateTime;
 use lib_hash::hash_scheme::HashScheme;
+use lib_models::error::ModelResult;
 use serde::{Deserialize, Serialize};
 use sqlb::{Fields, HasFields};
 use sqlx::{postgres::PgRow, prelude::FromRow, PgPool};

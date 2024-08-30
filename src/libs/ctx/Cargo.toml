@@ -1,0 +1,14 @@
+[package]
+name = "ctx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.80"
+jwt = { path = "../jwt" }
+axum = { version = "0.7.5", features = ["multipart"] }
+lib-routes = { path = "../lib-routes" }
+
+[lib]
+name = "ctx"
+path = "lib.rs"
