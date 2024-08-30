@@ -1031,7 +1031,9 @@ dependencies = [
  "chrono",
  "dotenvy",
  "itertools 0.13.0",
+ "lib-ctx",
  "lib-hash",
+ "lib-jwt",
  "ndarray",
  "ndarray-rand",
  "once_cell",
@@ -1542,6 +1544,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "lib-ctx"
+version = "0.1.0"
+dependencies = [
+ "lib-jwt",
+]
+
+[[package]]
 name = "lib-hash"
 version = "0.1.0"
 dependencies = [
@@ -1551,6 +1560,14 @@ dependencies = [
  "sha2",
  "sqlb",
  "sqlx",
+]
+
+[[package]]
+name = "lib-jwt"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "lib-hash",
 ]
 
 [[package]]

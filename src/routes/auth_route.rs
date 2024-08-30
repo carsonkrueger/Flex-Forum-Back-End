@@ -1,17 +1,16 @@
 use super::NestedRoute;
 use super::{RouteError, RouterResult};
-use crate::libs::jwt::{JWT, JWT_HASH_SCHEME, JWT_LIFE_IN_MINUTES};
+use crate::libs::jwt::{JWT, JWT_LIFE_IN_MINUTES};
 use crate::libs::validation::{validate_struct, RE_NAME, RE_USERNAME};
 use crate::middleware::auth_mw::{AUTH_TOKEN, JWT_SECRET};
 use crate::models::user_model::{username_or_email_exists, CreateUserModel, UserModel};
 use crate::AppState;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
-use hash_lib::hash_scheme::{HashScheme, Hasher};
-use hash_lib::hashers::argon2_v01::Argon2V01;
+use lib_hash::hash_scheme::{HashScheme, Hasher};
+use lib_hash::hashers::argon2_v01::Argon2V01;
 use serde::Deserialize;
 use sqlb::Fields;
 use sqlx::prelude::FromRow;
@@ -128,7 +127,7 @@ pub async fn log_in(
     let hasher = hash_model.hash_scheme.hasher();
     hasher.verify(&body.password, &hash_model.pwd_salt, &hash_model.pwd_hash)?;
 
-    let result_jwt = JWT::new(hash_model.username.clone(), &JWT_SECRET, &JWT_HASH_SCHEME)?;
+    let result_jwt = JWT::new(hash_model.username.clone(), &JWT_SECRET)?;
 
     let mut auth_cookie = Cookie::new(AUTH_TOKEN, result_jwt.to_string());
     let expires = tower_cookies::cookie::time::OffsetDateTime::now_utc()

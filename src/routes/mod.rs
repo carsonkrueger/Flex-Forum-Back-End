@@ -111,10 +111,10 @@ impl From<crate::models::ModelError> for RouteError {
     }
 }
 
-impl From<hash_lib::error::HashError> for RouteError {
-    fn from(value: hash_lib::error::HashError) -> Self {
+impl From<lib_hash::error::HashError> for RouteError {
+    fn from(value: lib_hash::error::HashError) -> Self {
         match value {
-            hash_lib::error::HashError::VerificationFail => RouteError::InvalidAuth,
+            lib_hash::error::HashError::VerificationFail => RouteError::InvalidAuth,
             _ => RouteError::HashError,
         }
     }

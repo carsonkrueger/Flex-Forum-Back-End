@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 lib-hash = { path = "src/libs/lib-hash" }
+lib-ctx = { path = "src/libs/lib-ctx" }
+lib-jwt = { path = "src/libs/lib-jwt" }
 argon2 = "0.5.3"
 axum = { version = "0.7.5", features = ["multipart"] }
 dotenvy = "0.15.7"

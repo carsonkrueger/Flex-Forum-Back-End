@@ -3,7 +3,7 @@ use super::{
     ModelResult,
 };
 use chrono::NaiveDateTime;
-use hash_lib::hash_scheme::HashScheme;
+use lib_hash::hash_scheme::HashScheme;
 use serde::{Deserialize, Serialize};
 use sqlb::{Fields, HasFields};
 use sqlx::{postgres::PgRow, prelude::FromRow, PgPool};

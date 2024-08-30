@@ -11,10 +11,7 @@ use axum::{
 use once_cell::sync::Lazy;
 use tower_cookies::{Cookie, Cookies};
 
-use crate::libs::{
-    ctx::Ctx,
-    jwt::{JWT, JWT_HASH_SCHEME},
-};
+use crate::libs::{ctx::Ctx, jwt::JWT};
 use crate::routes::{RouteError, RouterResult};
 
 pub const AUTH_TOKEN: &'static str = "auth_token";
@@ -30,7 +27,7 @@ pub async fn validate_auth(
     req: Request<Body>,
     next: Next,
 ) -> RouterResult<Response> {
-    ctx?.jwt().validate_token(&JWT_SECRET, &JWT_HASH_SCHEME)?;
+    ctx?.jwt().validate_token(&JWT_SECRET)?;
     Ok(next.run(req).await)
 }
 
