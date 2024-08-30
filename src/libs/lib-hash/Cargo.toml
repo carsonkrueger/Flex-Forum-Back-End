@@ -12,5 +12,5 @@ sqlb = "0.4.0"
 sqlx = "0.7.4"
 
 [lib]
-name = "hash_lib"
+name = "lib_hash"
 path = "lib.rs"

@@ -1,0 +1,11 @@
+[package]
+name = "lib-ctx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lib-jwt = { path = "../lib-jwt" }
+
+[lib]
+name = "lib_ctx"
+path = "lib.rs"

@@ -39,6 +39,7 @@ pub type Salt = String;
 pub type Hash = String;
 
 pub trait Hasher {
+    fn hash_prefix(&self) -> &'static str;
     /// Generic function that hashes a password based upon a hash_scheme, returning the hash and salt string.
     fn hash(&self, password: &str) -> HashResult<(Hash, Salt)>;
     /// Generic function that hashes a password with the given salt based upon a hash_scheme, returning the hash string.

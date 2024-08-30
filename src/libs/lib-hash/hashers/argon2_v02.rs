@@ -21,6 +21,9 @@ impl Argon2V02 {
 }
 
 impl Hasher for Argon2V02 {
+    fn hash_prefix(&self) -> &'static str {
+        "$argon2id$v=19$m=1028,t=1,p=1$"
+    }
     fn hash(
         &self,
         password: &str,

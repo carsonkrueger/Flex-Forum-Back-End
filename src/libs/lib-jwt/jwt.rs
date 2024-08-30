@@ -1,12 +1,10 @@
 use crate::routes::{RouteError, RouterResult};
 
 use chrono::{DateTime, TimeDelta, Utc};
-use hash_lib::{error::HashError, hash_scheme::Hasher, hashers::argon2_v02::Argon2V02};
+use lib_hash::{error::HashError, hash_scheme::HashScheme};
 
 pub const JWT_DATE_FORMAT: &'static str = "%Y/%m/%d_%H/%M/%S_%z";
 pub const JWT_LIFE_IN_MINUTES: i64 = 60;
-pub const JWT_HASH_SCHEME: Argon2V02 = Argon2V02;
-pub const JWT_PREFIX: &str = "$argon2id$v=19$m=1028,t=1,p=1$";
 
 #[derive(Clone, Debug)]
 pub struct JWT {
@@ -17,7 +15,8 @@ pub struct JWT {
 
 #[allow(unused)]
 impl JWT {
-    pub fn new<H: Hasher>(username: String, key: &str, hasher: &H) -> RouterResult<JWT> {
+    const JWT_HASH_SCHEME: HashScheme = HashScheme::Argon2V02;
+    pub fn new(username: String, key: &str) -> RouterResult<JWT> {
         let expires = Utc::now()
             .checked_add_signed(TimeDelta::minutes(JWT_LIFE_IN_MINUTES))
             .unwrap();
@@ -27,15 +26,16 @@ impl JWT {
             expires,
             signature: None,
         };
-        jwt.sign(key, hasher)?;
+
+        jwt.sign(key)?;
 
         Ok(jwt)
     }
-    pub fn sign<H: Hasher>(&mut self, salt: &str, hasher: &H) -> RouterResult<()> {
+    pub fn sign(&mut self, salt: &str) -> RouterResult<()> {
         let pwd = self.as_pwd();
+        let hasher = Self::JWT_HASH_SCHEME.hasher();
         let hash = hasher.hash_with_salt(&pwd, salt)?;
-        let hash_end = hash.strip_prefix(JWT_PREFIX).unwrap().to_string();
-        println!("signature end: {}", &hash_end);
+        let hash_end = hash.strip_prefix(hasher.hash_prefix()).unwrap().to_string();
         self.signature = Some(hash_end);
         Ok(())
     }
@@ -55,7 +55,8 @@ impl JWT {
         let expires =
             chrono::DateTime::parse_from_str(&parts[1].to_string(), JWT_DATE_FORMAT)?.to_utc();
 
-        let signature = Some(format!("{}{}", JWT_PREFIX, parts[2]));
+        let hasher = Self::JWT_HASH_SCHEME.hasher();
+        let signature = Some(format!("{}{}", hasher.hash_prefix(), parts[2]));
 
         let jwt = JWT {
             username,
@@ -66,13 +67,14 @@ impl JWT {
         Ok(jwt)
     }
     /// Validates the jwt using the secret key and the hash, returning true if valid
-    pub fn validate_token<H: Hasher>(&self, salt: &String, hasher: &H) -> RouterResult<()> {
+    pub fn validate_token(&self, salt: &String) -> RouterResult<()> {
         let now = chrono::Utc::now();
         if self.expires <= now {
             return Err(RouteError::ExpiredAuthToken);
         }
 
         let pwd = self.as_pwd();
+        let hasher = Self::JWT_HASH_SCHEME.hasher();
         let hash_result = hasher.verify(
             &pwd,
             salt,
