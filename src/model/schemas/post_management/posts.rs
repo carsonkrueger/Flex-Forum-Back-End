@@ -1,11 +1,9 @@
 use crate::model::error::ModelResult;
-use crate::model::schema::IntoIteratorColumnRef;
-use crate::model::schema::IntoSchemaTableRef;
+use crate::model::schema::{IntoIteratorIden, IntoSchemaTableRef};
 use chrono::NaiveDateTime;
 use itertools::Itertools;
-use lib_macros::iterator_def;
-use lib_macros::{iterator_column_def, schema_table_def};
-use sea_query::{enum_def, Expr, PostgresQueryBuilder, Query};
+use lib_macros::{iterator_def, iterator_iden_def, schema_table_def};
+use sea_query::{enum_def, Expr, PostgresQueryBuilder, Query, Value};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, PgPool, Postgres};
@@ -25,10 +23,28 @@ pub enum PostType {
     Workout,
 }
 
+impl From<&PostType> for sea_query::Value {
+    fn from(value: &PostType) -> Self {
+        match value {
+            PostType::Images => Value::String(Some(Box::new("images".to_string()))),
+            PostType::Workout => Value::String(Some(Box::new("workout".to_string()))),
+        }
+    }
+}
+
+impl From<PostType> for sea_query::Value {
+    fn from(value: PostType) -> Self {
+        match &value {
+            PostType::Images => Value::String(Some(Box::new("images".to_string()))),
+            PostType::Workout => Value::String(Some(Box::new("workout".to_string()))),
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, FromRow, Debug, Clone)]
 #[enum_def]
 #[schema_table_def(Schema::PostManagement, PostsIden::Table)]
-#[iterator_column_def(PostsIden)]
+#[iterator_iden_def(PostsIden)]
 pub struct Posts {
     pub id: i64,
     pub username: String,
@@ -39,19 +55,19 @@ pub struct Posts {
     pub deactivated_at: Option<NaiveDateTime>,
 }
 
-#[iterator_column_def(PostsIden)]
+#[iterator_iden_def(PostsIden)]
 #[iterator_def(PostsIden)]
 pub struct CreatePostModel {
     pub username: String,
-    pub num_images: i16,
-    pub description: Option<String>,
+    pub num_images: i32,
+    pub description: String,
     pub post_type: PostType,
 }
 
 pub async fn get_three_older(pool: &PgPool, created_at: &NaiveDateTime) -> ModelResult<Vec<Posts>> {
     let (sql, values) = Query::select()
         .from(Posts::schema_table_ref())
-        .columns(Posts::into_iterator_column_ref())
+        .columns(Posts::into_iterator_iden())
         .and_where(Expr::col(PostsIden::CreatedAt).lt(*created_at))
         .order_by(PostsIden::CreatedAt, sea_query::Order::Desc)
         .limit(3)
@@ -98,18 +114,6 @@ pub async fn get_ten_unseen_older<'q>(
     .await?;
     Ok(rows)
 }
-
-#[derive(Debug)]
-pub struct NaiveDateTimeWrapper<'a>(&'a NaiveDateTime);
-
-// impl SqlxBindable for NaiveDateTimeWrapper<'_> {
-//     fn bind_query<'q>(
-//         &'q self,
-//         query: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
-//     ) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {
-//         query.bind(self.0)
-//     }
-// }
 
 pub fn sort_by_predicted(posts: &mut Vec<Posts>, s: &AppState, num_taken: usize, user_id: i64) {
     let post_ids = posts.iter().map(|p| p.id).collect::<Vec<_>>();

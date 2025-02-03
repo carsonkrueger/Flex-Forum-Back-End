@@ -1,6 +1,6 @@
 use super::{
     error::{ModelError, ModelResult},
-    schema::{IntoIteratorColumnRef, IntoSchemaTableRef},
+    schema::{IntoIteratorExprVal, IntoIteratorIden, IntoSchemaTableRef},
 };
 use sea_query::{
     Expr, Func, IntoColumnRef, IntoIden, PostgresQueryBuilder, Query, SimpleExpr, Value,
@@ -8,17 +8,18 @@ use sea_query::{
 use sea_query_binder::SqlxBinder;
 use sqlx::{postgres::PgRow, Executor, FromRow, Postgres};
 
-pub async fn insert_returning<'r, 'e, M>(
-    // columns: impl IntoIterator<Item = impl IntoIden>,
-    values: impl IntoIterator<Item = SimpleExpr>,
+pub async fn insert_returning<'e, M, C>(
+    values: impl IntoIteratorExprVal,
     pool: impl Executor<'e, Database = Postgres>,
 ) -> ModelResult<M>
 where
     M: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoSchemaTableRef,
+    C: IntoIteratorIden,
 {
     let (sql, values) = Query::insert()
         .into_table(M::schema_table_ref())
-        .values(values)?
+        .columns(C::into_iterator_iden())
+        .values(values.into_iterator_val())?
         .returning_all()
         .build_sqlx(PostgresQueryBuilder);
 
@@ -29,17 +30,17 @@ where
     Ok(model)
 }
 
-pub async fn get_one_with_key<'r, 'e, M, RM>(
+pub async fn get_one_with_key<'e, M, RM>(
     key: impl Into<SimpleExpr>,
     pool: impl Executor<'e, Database = Postgres>,
 ) -> ModelResult<Option<RM>>
 where
     M: IntoSchemaTableRef,
-    RM: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoIteratorColumnRef,
+    RM: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoIteratorIden,
 {
     let (sql, values) = Query::select()
         .from(M::schema_table_ref())
-        .columns(RM::into_iterator_column_ref())
+        .columns(RM::into_iterator_iden())
         .and_where(Expr::col(M::key_col_ref()).eq(key))
         .build_sqlx(PostgresQueryBuilder);
 
@@ -50,18 +51,18 @@ where
     Ok(model)
 }
 
-pub async fn get_one_with<'r, 'e, M, RM>(
+pub async fn get_one_with<'e, M, RM>(
     col: impl IntoColumnRef,
     val: impl Into<SimpleExpr>,
     pool: impl Executor<'e, Database = Postgres>,
 ) -> ModelResult<Option<RM>>
 where
     M: IntoSchemaTableRef,
-    RM: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoIteratorColumnRef,
+    RM: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoIteratorIden,
 {
     let (sql, values) = Query::select()
         .from(M::schema_table_ref())
-        .columns(RM::into_iterator_column_ref())
+        .columns(RM::into_iterator_iden())
         .and_where(Expr::col(col).eq(val))
         .build_sqlx(PostgresQueryBuilder);
 
@@ -73,7 +74,7 @@ where
 }
 
 /// Gets the first row with the matching column vals.
-pub async fn get_one_with_both<'r, 'e, M, RM>(
+pub async fn get_one_with_both<'e, M, RM>(
     col: impl IntoColumnRef,
     val: impl Into<Value>,
     col2: impl IntoColumnRef,
@@ -82,11 +83,11 @@ pub async fn get_one_with_both<'r, 'e, M, RM>(
 ) -> ModelResult<Option<RM>>
 where
     M: IntoSchemaTableRef,
-    RM: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoIteratorColumnRef,
+    RM: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoIteratorIden,
 {
     let (sql, values) = Query::select()
         .from(M::schema_table_ref())
-        .columns(RM::into_iterator_column_ref())
+        .columns(RM::into_iterator_iden())
         .and_where(Expr::col(col).eq(val.into()))
         .and_where(Expr::col(col2).eq(val2.into()))
         .build_sqlx(PostgresQueryBuilder);
@@ -98,16 +99,16 @@ where
     Ok(model)
 }
 
-pub async fn get_all<'r, 'e, M, RM>(
+pub async fn get_all<'e, M, RM>(
     pool: impl Executor<'e, Database = Postgres>,
 ) -> ModelResult<Vec<RM>>
 where
     M: IntoSchemaTableRef,
-    RM: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoIteratorColumnRef,
+    RM: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoIteratorIden,
 {
     let (sql, values) = Query::select()
         .from(M::schema_table_ref())
-        .columns(RM::into_iterator_column_ref())
+        .columns(RM::into_iterator_iden())
         .build_sqlx(PostgresQueryBuilder);
 
     let model = sqlx::query_as_with::<Postgres, RM, _>(&sql, values)
@@ -117,7 +118,7 @@ where
     Ok(model)
 }
 
-pub async fn update<'r, 'e, M, T, VI>(
+pub async fn update<'e, M, T, VI>(
     values: VI,
     key: SimpleExpr,
     pool: impl Executor<'e, Database = Postgres>,
@@ -140,7 +141,7 @@ where
     Ok(())
 }
 
-pub async fn delete_one_by_key<'r, 'e, M>(
+pub async fn delete_one_by_key<'e, M>(
     key: SimpleExpr,
     pool: impl Executor<'e, Database = Postgres>,
 ) -> ModelResult<()>
@@ -157,7 +158,7 @@ where
     Ok(())
 }
 
-pub async fn delete_one_with<'r, 'e, M>(
+pub async fn delete_one_with<'e, M>(
     col: impl IntoColumnRef,
     val: SimpleExpr,
     pool: impl Executor<'e, Database = Postgres>,
@@ -177,7 +178,7 @@ where
     Ok(())
 }
 
-pub async fn delete_one_with_both<'r, 'e, M>(
+pub async fn delete_one_with_both<'e, M>(
     col: impl IntoColumnRef,
     val: SimpleExpr,
     col2: impl IntoColumnRef,
@@ -202,7 +203,7 @@ where
 
 const MAX_LIMIT: u64 = 64;
 
-pub async fn list<'r, 'e, M, RM>(
+pub async fn list<'e, M, RM>(
     col: impl IntoColumnRef,
     val: impl Into<SimpleExpr>,
     offset: u64,
@@ -211,13 +212,13 @@ pub async fn list<'r, 'e, M, RM>(
 ) -> ModelResult<Vec<RM>>
 where
     M: IntoSchemaTableRef,
-    RM: IntoIteratorColumnRef + Send + Unpin + for<'fr> FromRow<'fr, PgRow>,
+    RM: IntoIteratorIden + Send + Unpin + for<'fr> FromRow<'fr, PgRow>,
 {
     let limit = limit.min(MAX_LIMIT);
 
     let (sql, values) = Query::select()
         .from(M::schema_table_ref())
-        .columns(RM::into_iterator_column_ref())
+        .columns(RM::into_iterator_iden())
         .limit(limit)
         .offset(offset)
         .and_where(Expr::col(col).eq(val))

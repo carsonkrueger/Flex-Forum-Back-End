@@ -1,4 +1,4 @@
-use lib_macros::{iterator_column_def, iterator_def, schema_table_def};
+use lib_macros::{iterator_def, iterator_iden_def, schema_table_def};
 use sea_query::enum_def;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, PgPool};
@@ -12,14 +12,14 @@ use crate::model::{
 #[derive(Deserialize, Serialize, FromRow, Debug)]
 #[enum_def]
 #[schema_table_def(Schema::PostManagement, LikesIden::Table)]
-#[iterator_column_def(LikesIden)]
+#[iterator_iden_def(LikesIden)]
 pub struct Likes {
     pub id: i64,
     pub post_id: i64,
     pub username: String,
 }
 
-#[iterator_column_def(LikesIden)]
+#[iterator_iden_def(LikesIden)]
 #[iterator_def(LikesIden)]
 pub struct LikePost {
     pub post_id: i64,

@@ -1,5 +1,5 @@
 use axum::{extract::State, routing::get, Json, Router};
-use lib_macros::iterator_column_def;
+use lib_macros::iterator_iden_def;
 use serde::Serialize;
 use sqlx::prelude::FromRow;
 
@@ -21,7 +21,7 @@ impl NestedRoute<AppState> for ExercisePresetRoute {
 }
 
 #[derive(FromRow, Serialize)]
-#[iterator_column_def(ExercisePresetIden)]
+#[iterator_iden_def(ExercisePresetIden)]
 pub struct ReadExercisePresetModel {
     pub id: i64,
     pub name: String,

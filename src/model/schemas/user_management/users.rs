@@ -4,7 +4,7 @@ use crate::model::{
     schema::Schema,
 };
 use chrono::NaiveDateTime;
-use lib_macros::{iterator_column_def, schema_table_def};
+use lib_macros::{iterator_iden_def, schema_table_def};
 use sea_query::enum_def;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, PgPool};
@@ -13,7 +13,7 @@ use validator::Validate;
 #[derive(Deserialize, Serialize, FromRow, Debug)]
 #[enum_def]
 #[schema_table_def(Schema::UserManagement, UsersIden::Table)]
-#[iterator_column_def(UsersIden)]
+#[iterator_iden_def(UsersIden)]
 pub struct Users {
     pub id: i64,
     pub first_name: String,
@@ -28,7 +28,7 @@ pub struct Users {
 }
 
 #[derive(Deserialize, Serialize, FromRow, Debug)]
-#[iterator_column_def(UsersIden)]
+#[iterator_iden_def(UsersIden)]
 pub struct CreateUserModel {
     pub first_name: String,
     pub last_name: String,
@@ -40,7 +40,7 @@ pub struct CreateUserModel {
 }
 
 #[derive(Serialize, Validate, FromRow)]
-#[iterator_column_def(UsersIden)]
+#[iterator_iden_def(UsersIden)]
 pub struct ReadUserModel {
     pub first_name: String,
     pub last_name: String,

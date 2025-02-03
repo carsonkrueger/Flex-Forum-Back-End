@@ -16,8 +16,8 @@ use axum::routing::get;
 use axum::routing::post;
 use axum::Router;
 use axum::{extract::State, Json};
-use lib_macros::iterator_column_def;
 use lib_macros::iterator_def;
+use lib_macros::iterator_iden_def;
 use serde::Deserialize;
 use tower_cookies::Cookie;
 use tower_cookies::Cookies;
@@ -64,7 +64,7 @@ pub async fn delete_user(ctx: Ctx, cookies: Cookies, State(s): State<AppState>) 
 }
 
 #[derive(Deserialize)]
-#[iterator_column_def(FollowingIden)]
+#[iterator_iden_def(FollowingIden)]
 #[iterator_def(FollowingIden)]
 pub struct FollowingCreateModel {
     follower: String,
@@ -80,7 +80,7 @@ async fn follow_user(
         follower: ctx.jwt().username().to_string(),
         following,
     };
-    base::insert_returning::<Following>(follow, &s.pool).await?;
+    base::insert_returning::<Following, FollowingCreateModel>(follow, &s.pool).await?;
     Ok(())
 }
 

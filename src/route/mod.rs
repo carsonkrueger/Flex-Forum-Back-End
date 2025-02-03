@@ -3,7 +3,6 @@ use crate::{
         auth_mw::{ctx_resolver, validate_auth},
         logger_mw::logger,
     },
-    model,
     services::ndarray::NDArrayAppState,
 };
 use axum::{

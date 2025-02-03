@@ -1,4 +1,4 @@
-use lib_macros::{iterator_column_def, schema_table_def};
+use lib_macros::{iterator_iden_def, schema_table_def};
 use sea_query::{enum_def, IntoTableRef};
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, PgPool};
@@ -8,7 +8,7 @@ use crate::model::{error::ModelResult, schema::Schema};
 #[derive(Deserialize, Serialize, FromRow, Debug)]
 #[enum_def]
 #[schema_table_def(Schema::PostManagement, SeenPostsIden::Table)]
-#[iterator_column_def(SeenPostsIden)]
+#[iterator_iden_def(SeenPostsIden)]
 pub struct SeenPosts {
     pub id: i64,
     pub post_id: i64,

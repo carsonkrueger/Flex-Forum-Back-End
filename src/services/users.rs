@@ -2,16 +2,25 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher},
     Argon2, PasswordHash, PasswordVerifier,
 };
-use sea_query::Expr;
-use sqlx::{Pool, Postgres};
+use lib_macros::{iterator_def, iterator_iden_def};
+use sqlx::{prelude::FromRow, Pool, Postgres};
 
 use crate::{
     model::{
         base,
-        schemas::user_management::users::{username_or_email_exists, Users},
+        schemas::user_management::users::{username_or_email_exists, Users, UsersIden},
     },
     route::error::{RouteError, RouteResult},
 };
+
+#[derive(FromRow, Debug)]
+#[iterator_iden_def(UsersIden)]
+#[iterator_def]
+pub struct CreateUser {
+    pub email: String,
+    pub username: String,
+    pub pwd_hash: String,
+}
 
 pub async fn create_user(
     username: &str,
@@ -28,11 +37,13 @@ pub async fn create_user(
     let salt = argon2::password_hash::SaltString::generate(&mut OsRng);
     let hash = argon2.hash_password(password.as_bytes(), &salt)?;
 
-    let user = base::insert_returning::<Users>(
-        [Expr::val(email).into(), Expr::val(&hash.to_string()).into()],
-        pool,
-    )
-    .await?;
+    let create_user = CreateUser {
+        email: email.to_string(),
+        username: username.to_string(),
+        pwd_hash: hash.to_string(),
+    };
+
+    let user = base::insert_returning::<Users, CreateUser>(create_user, pool).await?;
 
     Ok(user)
 }

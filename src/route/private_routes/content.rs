@@ -58,7 +58,7 @@ struct UploadImageMulipart {
     image1: FieldData<Bytes>,
     image2: Option<FieldData<Bytes>>,
     image3: Option<FieldData<Bytes>>,
-    description: Option<String>,
+    description: String,
 }
 
 const IMAGE_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/jpg"];
@@ -94,7 +94,8 @@ async fn upload_images_post(
         description: upload.description,
         post_type: PostType::Images,
     };
-    let post = base::insert_returning::<Posts>(create_post, &mut *transaction).await?;
+    let post =
+        base::insert_returning::<Posts, CreatePostModel>(create_post, &mut *transaction).await?;
     let mut counter = 1;
     let username = ctx.jwt().username();
 
@@ -201,7 +202,7 @@ pub struct Workout {
 pub struct UploadWorkout {
     workout: Workout,
     #[validate(length(max = 1000))]
-    description: Option<String>,
+    description: String,
 }
 
 async fn upload_workout_post(
@@ -226,7 +227,7 @@ async fn upload_workout_post(
 
     let mut tx = s.pool.begin().await?;
 
-    let post = base::insert_returning::<Posts>(post, &mut *tx).await?;
+    let post = base::insert_returning::<Posts, CreatePostModel>(post, &mut *tx).await?;
 
     //let byte_slice = unsafe { any_as_u8_slice(&body.workout) };
     // let bytes = axum::body::Bytes::copy_from_slice(byte_slice);
@@ -316,7 +317,7 @@ async fn like_post(
         post_id,
         username: ctx.jwt().username().to_string(),
     };
-    base::insert_returning::<Likes>(like, &s.pool).await?;
+    base::insert_returning::<Likes, LikePost>(like, &s.pool).await?;
     seen(&s.pool, ctx.jwt().username(), post_id).await?;
     Ok(())
 }
@@ -349,7 +350,7 @@ async fn upload_profile_picture(
 ) -> RouteResult<()> {
     validate_content_type(&upload.image, IMAGE_CONTENT_TYPES)?;
 
-    let model = ProfilePicture {
+    let profile_picture = ProfilePicture {
         id: 0,
         username: ctx.jwt().username().to_string(),
     };
@@ -359,7 +360,11 @@ async fn upload_profile_picture(
     let items = base::get_all::<ProfilePicture, ProfilePicture>(&mut *transaction).await?;
 
     if items.len() == 0 {
-        base::insert_returning::<ProfilePicture>(model, &mut *transaction).await?;
+        base::insert_returning::<ProfilePicture, ProfilePicture>(
+            profile_picture,
+            &mut *transaction,
+        )
+        .await?;
     }
 
     s3_upload_profile_picture(

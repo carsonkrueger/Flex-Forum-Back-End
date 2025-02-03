@@ -1,4 +1,4 @@
-use lib_macros::{iterator_column_def, schema_table_def};
+use lib_macros::{iterator_iden_def, schema_table_def};
 use sea_query::enum_def;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, Pool, Postgres};
@@ -12,7 +12,7 @@ use crate::model::{
 #[derive(Deserialize, Serialize, FromRow, Debug, Clone)]
 #[enum_def]
 #[schema_table_def(Schema::UserManagement, FollowingIden::Table)]
-#[iterator_column_def(FollowingIden)]
+#[iterator_iden_def(FollowingIden)]
 pub struct Following {
     pub id: i64,
     pub follower: String,

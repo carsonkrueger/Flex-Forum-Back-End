@@ -1,17 +1,21 @@
-use sea_query::{Alias, ColumnRef, Iden, IntoColumnRef, IntoIden, TableRef};
+use sea_query::{Alias, Iden, IntoColumnRef, IntoIden, SimpleExpr, TableRef};
 
 pub trait IntoSchemaTableRef {
     fn schema_table_ref() -> TableRef;
-    fn key_col_ref() -> ColumnRef {
-        let i = Alias::new("id");
-        ColumnRef::Column(i.into_iden())
+    fn key_col_ref() -> impl IntoColumnRef {
+        Alias::new("id")
     }
 }
 
-pub trait IntoIteratorColumnRef {
-    type C: IntoColumnRef;
+pub trait IntoIteratorIden {
+    type C: IntoIden + 'static;
     type IC: IntoIterator<Item = Self::C>;
-    fn into_iterator_column_ref() -> Self::IC;
+    fn into_iterator_iden() -> Self::IC;
+}
+
+pub trait IntoIteratorExprVal {
+    type IntoIter: IntoIterator<Item = SimpleExpr>;
+    fn into_iterator_val(&self) -> Self::IntoIter;
 }
 
 #[derive(Clone)]
