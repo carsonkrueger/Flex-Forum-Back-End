@@ -1,6 +1,6 @@
 use aws_sdk_s3::config::Credentials;
 use dotenvy::dotenv;
-use routes::AppState;
+use route::AppState;
 use services::ndarray::load_models;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{
@@ -10,11 +10,12 @@ use std::{
 };
 use tower_http::cors::{Any, CorsLayer};
 
-mod libs;
+mod enums;
 mod middleware;
-mod models;
-mod routes;
+mod model;
+mod route;
 mod services;
+mod util;
 
 #[tokio::main]
 async fn main() {
@@ -46,7 +47,7 @@ async fn main() {
         s3_client,
         ndarray_app_state: Arc::new(Mutex::new(ndarray_app_state)),
     };
-    let router = routes::create_routes(app_state).layer(cors);
+    let router = route::create_routes(app_state).layer(cors);
 
     let addr = "0.0.0.0:3001";
     let listener = tokio::net::TcpListener::bind(addr)

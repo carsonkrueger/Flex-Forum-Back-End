@@ -1,0 +1,101 @@
+use crate::middleware::auth_mw::AUTH_TOKEN;
+use crate::model::base;
+use crate::model::schemas::post_management::following::Following;
+use crate::model::schemas::post_management::following::FollowingIden;
+use crate::model::schemas::user_management::users::list_by_username;
+use crate::model::schemas::user_management::users::ReadUserModel;
+use crate::model::schemas::user_management::users::Users;
+use crate::model::schemas::user_management::users::UsersIden;
+use crate::route::error::RouteResult;
+use crate::route::NestedRoute;
+use crate::util::ctx::Ctx;
+use crate::AppState;
+use axum::extract::Path;
+use axum::routing::delete;
+use axum::routing::get;
+use axum::routing::post;
+use axum::Router;
+use axum::{extract::State, Json};
+use lib_macros::iterator_column_def;
+use lib_macros::iterator_def;
+use serde::Deserialize;
+use tower_cookies::Cookie;
+use tower_cookies::Cookies;
+
+pub struct UserRoute;
+
+impl NestedRoute<AppState> for UserRoute {
+    const PATH: &'static str = "/users";
+    fn router() -> Router<AppState> {
+        Router::new()
+            .route("/:username", get(get_user))
+            .route("/list/:username", get(list_users))
+            .route("/delete", delete(delete_user))
+            .route("/follow/:following", post(follow_user))
+            .route("/follow/:following", delete(unfollow_user))
+    }
+}
+
+pub async fn get_user(
+    _ctx: Ctx,
+    Path(username): Path<String>,
+    State(s): State<AppState>,
+) -> RouteResult<Json<Option<ReadUserModel>>> {
+    let read_user =
+        base::get_one_with::<Users, ReadUserModel>(UsersIden::Username, &username, &s.pool).await?;
+    Ok(Json(read_user))
+}
+
+pub async fn list_users(
+    _ctx: Ctx,
+    Path(username): Path<String>,
+    State(s): State<AppState>,
+) -> RouteResult<Json<Vec<ReadUserModel>>> {
+    let users = list_by_username(5, 0, &username.to_lowercase(), &s.pool).await?;
+    Ok(Json(users))
+}
+
+pub async fn delete_user(ctx: Ctx, cookies: Cookies, State(s): State<AppState>) -> RouteResult<()> {
+    base::delete_one_with::<Users>(UsersIden::Username, ctx.jwt().username().into(), &s.pool)
+        .await?;
+    cookies.remove(Cookie::from(AUTH_TOKEN));
+
+    Ok(())
+}
+
+#[derive(Deserialize)]
+#[iterator_column_def(FollowingIden)]
+#[iterator_def(FollowingIden)]
+pub struct FollowingCreateModel {
+    follower: String,
+    following: String,
+}
+
+async fn follow_user(
+    ctx: Ctx,
+    State(s): State<AppState>,
+    Path(following): Path<String>,
+) -> RouteResult<()> {
+    let follow = FollowingCreateModel {
+        follower: ctx.jwt().username().to_string(),
+        following,
+    };
+    base::insert_returning::<Following>(follow, &s.pool).await?;
+    Ok(())
+}
+
+async fn unfollow_user(
+    ctx: Ctx,
+    State(s): State<AppState>,
+    Path(following): Path<String>,
+) -> RouteResult<()> {
+    base::delete_one_with_both::<Following>(
+        FollowingIden::Follower,
+        ctx.jwt().username().into(),
+        FollowingIden::Following,
+        following.into(),
+        &s.pool,
+    )
+    .await?;
+    Ok(())
+}

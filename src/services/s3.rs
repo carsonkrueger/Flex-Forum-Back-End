@@ -10,7 +10,7 @@ use aws_sdk_s3::{
 };
 use axum::body::Bytes;
 
-use crate::models::content_model::PostType;
+use crate::model::schemas::post_management::posts::PostType;
 
 const IMAGE_BUCKET: &str = "flexforumimages1";
 const WORKOUT_BUCKET: &str = "flexforumworkouts1";

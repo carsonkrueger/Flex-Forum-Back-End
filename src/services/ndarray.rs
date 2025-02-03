@@ -6,7 +6,7 @@ use ndarray_rand::RandomExt;
 use rand::distributions::Uniform;
 use sqlx::{Pool, Postgres};
 
-use crate::models::interactions_matrix_model::build_model;
+use crate::model::misc::interactions_matrix::build_model;
 
 #[derive(Debug)]
 pub struct NDArrayAppState {

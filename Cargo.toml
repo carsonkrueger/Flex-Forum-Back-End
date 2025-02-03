@@ -6,19 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lib-hash = { path = "src/libs/lib-hash" }
-lib-multipart = { path = "src/libs/lib-multipart" }
-lib-routes = { path = "src/libs/lib-routes" }
-lib-models = { path = "src/libs/lib-models" }
-ctx = { path = "src/libs/ctx" }
-jwt = { path = "src/libs/jwt" }
+lib-macros = { path = "libs/lib-macros" }
+lib-multipart = { path = "libs/lib-multipart" }
 argon2 = "0.5.3"
 axum = { version = "0.7.5", features = ["multipart"] }
 dotenvy = "0.15.7"
 once_cell = "1.19.0"
 regex = "1.10.4"
 serde = { version = "1.0.200", features = ["derive"] }
-sqlx = { version = "0.7.4", features = [
+sqlx = { version = "0.8.2", features = [
     "runtime-tokio",
     "postgres",
     "uuid",
@@ -30,7 +26,6 @@ tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
 validator = { version = "0.18.1", features = ["derive"] }
 async-trait = "0.1.80"
 tower-cookies = "0.10.0"
-sqlb = "0.4.0"
 serde_with = "3.8.1"
 tower-http = { version = "0.5.2", features = ["cors"] }
 axum_typed_multipart = "0.11.1"
@@ -42,3 +37,15 @@ itertools = "0.13.0"
 ndarray = "0.16.1"
 rand = "0.8.5"
 ndarray-rand = "0.15.0"
+sea-query = { version = "0.32.1", features = [
+    "backend-postgres",
+    "derive",
+    "sea-query-derive",
+    "with-chrono",
+] }
+sea-query-binder = { version = "0.7.0", features = [
+    "sqlx-postgres",
+    "chrono",
+    "with-chrono",
+] }
+jsonwebtoken = "9.3.0"
