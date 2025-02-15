@@ -1,9 +1,7 @@
 use crate::middleware::auth_mw::{AUTH_TOKEN, JWT_SECRET};
-use crate::model::base;
-use crate::model::schemas::user_management::users::{Users, UsersIden};
 use crate::route::error::{RouteError, RouteResult};
 use crate::route::NestedRoute;
-use crate::services::users::{create_user, verify_user};
+use crate::services::users::{UsersService, UsersServiceTrait};
 use crate::util::jwt::JWT;
 use crate::util::validation::{validate_struct, RE_NAME, RE_USERNAME};
 use crate::AppState;
@@ -64,7 +62,8 @@ pub async fn sign_up(
 
     let mut tx = s.pool.begin().await?;
 
-    let user = create_user(&body.username, &body.email, &body.password, &mut tx).await?;
+    let user =
+        UsersService::create_user(&body.username, &body.email, &body.password, &mut tx).await?;
     let jwt = JWT::new(user.id, user.username, Vec::new());
     let jwt_str = jwt.encode(JWT_SECRET.as_bytes())?;
     let cookie = Cookie::new(AUTH_TOKEN, jwt_str);
@@ -99,16 +98,13 @@ pub async fn log_in(
     validate_struct(&body)?;
 
     body.username = body.username.trim().to_lowercase();
-    body.password = body.password.trim().to_string();
 
-    let user = base::get_one_with::<Users, Users>(
-        UsersIden::Username,
-        body.username,
+    let user = UsersService::verify_user(
+        &body.username,
+        body.password.trim(),
         &mut *s.pool.acquire().await?,
     )
-    .await?
-    .ok_or(RouteError::InvalidAuth)?;
-    verify_user(&user, &body.password)?;
+    .await?;
     let jwt = JWT::new(user.id, user.username, Vec::new());
     let jwt_str = jwt.encode(JWT_SECRET.as_bytes())?;
     let cookie = Cookie::new(AUTH_TOKEN, jwt_str);
