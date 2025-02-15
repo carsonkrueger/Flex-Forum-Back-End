@@ -31,6 +31,8 @@ pub struct ReadExercisePresetModel {
 pub async fn get_presets(
     State(s): State<AppState>,
 ) -> RouteResult<Json<Vec<ReadExercisePresetModel>>> {
-    let res = base::get_all::<ExercisePreset, ReadExercisePresetModel>(&s.pool).await?;
+    let res =
+        base::get_all::<ExercisePreset, ReadExercisePresetModel>(&mut *s.pool.acquire().await?)
+            .await?;
     Ok(Json(res))
 }

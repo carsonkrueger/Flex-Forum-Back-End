@@ -1,12 +1,12 @@
 use lib_macros::{iterator_def, iterator_iden_def, schema_table_def};
 use sea_query::enum_def;
 use serde::{Deserialize, Serialize};
-use sqlx::{prelude::FromRow, PgPool};
+use sqlx::prelude::FromRow;
 
 use crate::model::{
     base::{self},
     error::ModelResult,
-    schema::Schema,
+    schema::{FlexForumDbConnection, Schema},
 };
 
 #[derive(Deserialize, Serialize, FromRow, Debug)]
@@ -26,11 +26,15 @@ pub struct LikePost {
     pub username: String,
 }
 
-pub async fn get_num_likes(pool: &PgPool, post_id: i64) -> ModelResult<i64> {
+pub async fn get_num_likes(pool: &mut FlexForumDbConnection, post_id: i64) -> ModelResult<i64> {
     base::count_where::<Likes>(LikesIden::PostId, "=", post_id, pool).await
 }
 
-pub async fn is_liked(pool: &PgPool, post_id: i64, username: &str) -> ModelResult<bool> {
+pub async fn is_liked(
+    pool: &mut FlexForumDbConnection,
+    post_id: i64,
+    username: &str,
+) -> ModelResult<bool> {
     let res = base::get_one_with_both::<Likes, Likes>(
         LikesIden::PostId,
         post_id,

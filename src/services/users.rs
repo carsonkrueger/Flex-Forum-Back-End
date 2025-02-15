@@ -3,11 +3,12 @@ use argon2::{
     Argon2, PasswordHash, PasswordVerifier,
 };
 use lib_macros::{iterator_def, iterator_iden_def};
-use sqlx::{prelude::FromRow, Pool, Postgres};
+use sqlx::prelude::FromRow;
 
 use crate::{
     model::{
         base,
+        schema::FlexForumDbConnection,
         schemas::user_management::users::{username_or_email_exists, Users, UsersIden},
     },
     route::error::{RouteError, RouteResult},
@@ -22,13 +23,13 @@ pub struct CreateUser {
     pub pwd_hash: String,
 }
 
-pub async fn create_user(
+pub async fn create_user<'e>(
     username: &str,
     email: &str,
     password: &str,
-    pool: &Pool<Postgres>,
+    pool: &mut FlexForumDbConnection,
 ) -> RouteResult<Users> {
-    let taken_str = username_or_email_exists(&username, &email, pool).await?;
+    let taken_str = username_or_email_exists(&username, &email, &mut *pool).await?;
     if let Some(taken) = taken_str {
         return Err(RouteError::AlreadyTaken(taken));
     }

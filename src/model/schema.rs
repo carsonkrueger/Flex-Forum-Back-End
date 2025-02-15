@@ -1,4 +1,7 @@
 use sea_query::{Alias, Iden, IntoColumnRef, IntoIden, SimpleExpr, TableRef};
+use sqlx::PgConnection;
+
+pub type FlexForumDbConnection = PgConnection;
 
 pub trait IntoSchemaTableRef {
     fn schema_table_ref() -> TableRef;

@@ -41,8 +41,12 @@ pub async fn get_user(
     Path(username): Path<String>,
     State(s): State<AppState>,
 ) -> RouteResult<Json<Option<ReadUserModel>>> {
-    let read_user =
-        base::get_one_with::<Users, ReadUserModel>(UsersIden::Username, &username, &s.pool).await?;
+    let read_user = base::get_one_with::<Users, ReadUserModel>(
+        UsersIden::Username,
+        &username,
+        &mut *s.pool.acquire().await?,
+    )
+    .await?;
     Ok(Json(read_user))
 }
 
@@ -51,13 +55,23 @@ pub async fn list_users(
     Path(username): Path<String>,
     State(s): State<AppState>,
 ) -> RouteResult<Json<Vec<ReadUserModel>>> {
-    let users = list_by_username(5, 0, &username.to_lowercase(), &s.pool).await?;
+    let users = list_by_username(
+        5,
+        0,
+        &username.to_lowercase(),
+        &mut *s.pool.acquire().await?,
+    )
+    .await?;
     Ok(Json(users))
 }
 
 pub async fn delete_user(ctx: Ctx, cookies: Cookies, State(s): State<AppState>) -> RouteResult<()> {
-    base::delete_one_with::<Users>(UsersIden::Username, ctx.jwt().username().into(), &s.pool)
-        .await?;
+    base::delete_one_with::<Users>(
+        UsersIden::Username,
+        ctx.jwt().username().into(),
+        &mut *s.pool.acquire().await?,
+    )
+    .await?;
     cookies.remove(Cookie::from(AUTH_TOKEN));
 
     Ok(())
@@ -80,7 +94,11 @@ async fn follow_user(
         follower: ctx.jwt().username().to_string(),
         following,
     };
-    base::insert_returning::<Following, FollowingCreateModel>(follow, &s.pool).await?;
+    base::insert_returning::<Following, FollowingCreateModel>(
+        follow,
+        &mut *s.pool.acquire().await?,
+    )
+    .await?;
     Ok(())
 }
 
@@ -94,7 +112,7 @@ async fn unfollow_user(
         ctx.jwt().username().into(),
         FollowingIden::Following,
         following.into(),
-        &s.pool,
+        &mut *s.pool.acquire().await?,
     )
     .await?;
     Ok(())

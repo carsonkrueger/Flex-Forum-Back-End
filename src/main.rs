@@ -5,6 +5,7 @@ use services::ndarray::load_models;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::{
     env,
+    process::Command,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -19,6 +20,10 @@ mod util;
 
 #[tokio::main]
 async fn main() {
+    Command::new("./scripts/start_db.sh")
+        .output()
+        .expect("Could not run start_db.sh");
+
     let pool = create_pool().await;
     let s3_client = create_s3_client().await;
 
@@ -49,12 +54,14 @@ async fn main() {
     };
     let router = route::create_routes(app_state).layer(cors);
 
-    let addr = "0.0.0.0:3001";
-    let listener = tokio::net::TcpListener::bind(addr)
+    let addr = env::var("ADDR").expect("ADDR not found in .env");
+    let port = env::var("PORT").expect("PORT not found in .env");
+    let full_addr = format!("{}:{}", addr, port);
+    let listener = tokio::net::TcpListener::bind(&full_addr)
         .await
-        .expect(&format!("Could not listen at {}", addr));
+        .expect(&format!("Could not listen at {}", &full_addr));
 
-    println!("Serving on {}", addr);
+    println!("Serving on {}", full_addr);
     axum::serve(listener, router)
         .await
         .expect("Could not serve axum app");

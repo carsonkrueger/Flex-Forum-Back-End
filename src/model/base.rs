@@ -10,7 +10,7 @@ use sqlx::{postgres::PgRow, Executor, FromRow, Postgres};
 
 pub async fn insert_returning<'e, M, C>(
     values: impl IntoIteratorExprVal,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<M>
 where
     M: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoSchemaTableRef,
@@ -32,7 +32,7 @@ where
 
 pub async fn get_one_with_key<'e, M, RM>(
     key: impl Into<SimpleExpr>,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<Option<RM>>
 where
     M: IntoSchemaTableRef,
@@ -54,7 +54,7 @@ where
 pub async fn get_one_with<'e, M, RM>(
     col: impl IntoColumnRef,
     val: impl Into<SimpleExpr>,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<Option<RM>>
 where
     M: IntoSchemaTableRef,
@@ -79,7 +79,7 @@ pub async fn get_one_with_both<'e, M, RM>(
     val: impl Into<Value>,
     col2: impl IntoColumnRef,
     val2: impl Into<Value>,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<Option<RM>>
 where
     M: IntoSchemaTableRef,
@@ -100,7 +100,7 @@ where
 }
 
 pub async fn get_all<'e, M, RM>(
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<Vec<RM>>
 where
     M: IntoSchemaTableRef,
@@ -121,7 +121,7 @@ where
 pub async fn update<'e, M, T, VI>(
     values: VI,
     key: SimpleExpr,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<()>
 where
     M: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoSchemaTableRef,
@@ -143,7 +143,7 @@ where
 
 pub async fn delete_one_by_key<'e, M>(
     key: SimpleExpr,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<()>
 where
     M: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoSchemaTableRef,
@@ -161,7 +161,7 @@ where
 pub async fn delete_one_with<'e, M>(
     col: impl IntoColumnRef,
     val: SimpleExpr,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<()>
 where
     M: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoSchemaTableRef,
@@ -183,7 +183,7 @@ pub async fn delete_one_with_both<'e, M>(
     val: SimpleExpr,
     col2: impl IntoColumnRef,
     val2: SimpleExpr,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<()>
 where
     M: Send + Unpin + for<'fr> FromRow<'fr, PgRow> + IntoSchemaTableRef,
@@ -208,7 +208,7 @@ pub async fn list<'e, M, RM>(
     val: impl Into<SimpleExpr>,
     offset: u64,
     limit: u64,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<Vec<RM>>
 where
     M: IntoSchemaTableRef,
@@ -235,7 +235,7 @@ pub async fn count_where<'e, M>(
     col: impl IntoColumnRef,
     operator: &str,
     val: impl Into<Value>,
-    pool: impl Executor<'e, Database = Postgres>,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<i64>
 where
     M: IntoSchemaTableRef,

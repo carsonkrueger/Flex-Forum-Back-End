@@ -1,13 +1,13 @@
 use crate::model::{
     base::{self},
     error::ModelResult,
-    schema::Schema,
+    schema::{FlexForumDbConnection, Schema},
 };
 use chrono::NaiveDateTime;
 use lib_macros::{iterator_iden_def, schema_table_def};
 use sea_query::enum_def;
 use serde::{Deserialize, Serialize};
-use sqlx::{prelude::FromRow, PgPool};
+use sqlx::prelude::FromRow;
 use validator::Validate;
 
 #[derive(Deserialize, Serialize, FromRow, Debug)]
@@ -48,10 +48,10 @@ pub struct ReadUserModel {
 }
 
 /// Returns Some() with the email or username that is taken. None if not taken.
-pub async fn username_or_email_exists(
+pub async fn username_or_email_exists<'e>(
     username: &str,
     email: &str,
-    pool: &PgPool,
+    pool: &mut crate::model::schema::FlexForumDbConnection,
 ) -> ModelResult<Option<String>> {
     let result = sqlx::query_scalar::<_, (String, String)>("SELECT (email, username) FROM user_management.users WHERE email = $1 OR username = $2 LIMIT 1;")
         .bind(email)
@@ -76,7 +76,7 @@ pub async fn list_by_username(
     mut limit: u64,
     offset: u64,
     username: &str,
-    pool: &PgPool,
+    pool: &mut FlexForumDbConnection,
 ) -> ModelResult<Vec<ReadUserModel>> {
     limit = limit.clamp(0, MAX_LIMIT);
     let entities =
@@ -85,6 +85,9 @@ pub async fn list_by_username(
     Ok(entities)
 }
 
-pub async fn get_user_by_username(username: &str, pool: &PgPool) -> ModelResult<Option<Users>> {
+pub async fn get_user_by_username(
+    username: &str,
+    pool: &mut FlexForumDbConnection,
+) -> ModelResult<Option<Users>> {
     base::get_one_with::<Users, Users>(UsersIden::Username, username, pool).await
 }

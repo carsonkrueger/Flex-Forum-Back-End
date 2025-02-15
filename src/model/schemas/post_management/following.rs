@@ -1,12 +1,12 @@
 use lib_macros::{iterator_iden_def, schema_table_def};
 use sea_query::enum_def;
 use serde::{Deserialize, Serialize};
-use sqlx::{prelude::FromRow, Pool, Postgres};
+use sqlx::prelude::FromRow;
 
 use crate::model::{
     base::{self},
     error::ModelResult,
-    schema::Schema,
+    schema::{FlexForumDbConnection, Schema},
 };
 
 #[derive(Deserialize, Serialize, FromRow, Debug, Clone)]
@@ -20,7 +20,7 @@ pub struct Following {
 }
 
 pub async fn is_following(
-    pool: &Pool<Postgres>,
+    pool: &mut FlexForumDbConnection,
     follower: &str,
     following: &str,
 ) -> ModelResult<bool> {

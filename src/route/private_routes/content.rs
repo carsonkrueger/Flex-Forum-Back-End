@@ -32,7 +32,7 @@ use crate::{
         error::{RouteError, RouteResult},
         NestedRoute,
     },
-    services::s3::{s3_delete_post, s3_download_post, s3_upload_post, s3_upload_profile_picture},
+    services::s3::{S3Service, S3ServiceTrait},
     util::ctx::Ctx,
     AppState,
 };
@@ -85,21 +85,19 @@ async fn upload_images_post(
         counter += 1;
     }
 
-    let mut transaction = s.pool.begin().await?;
+    let mut tx = s.pool.begin().await?;
 
-    // let transaction = pool.begin().await?;
     let create_post = CreatePostModel {
         username: ctx.jwt().username().to_string(),
         num_images: counter,
         description: upload.description,
         post_type: PostType::Images,
     };
-    let post =
-        base::insert_returning::<Posts, CreatePostModel>(create_post, &mut *transaction).await?;
+    let post = base::insert_returning::<Posts, CreatePostModel>(create_post, &mut *tx).await?;
     let mut counter = 1;
     let username = ctx.jwt().username();
 
-    s3_upload_post(
+    S3Service::s3_upload_post(
         &s.s3_client,
         upload.image1.contents.clone(),
         username,
@@ -112,7 +110,7 @@ async fn upload_images_post(
 
     if let Some(img) = upload.image2 {
         counter += 1;
-        let res = s3_upload_post(
+        let res = S3Service::s3_upload_post(
             &s.s3_client,
             img.contents.clone(),
             username,
@@ -124,7 +122,7 @@ async fn upload_images_post(
         .await;
 
         if let Err(_) = res {
-            s3_delete_post(&s.s3_client, username, post.id, counter - 1).await?;
+            S3Service::s3_delete_post(&s.s3_client, username, post.id, counter - 1).await?;
         }
 
         res?;
@@ -132,7 +130,7 @@ async fn upload_images_post(
 
     if let Some(img) = upload.image3 {
         counter += 1;
-        let res = s3_upload_post(
+        let res = S3Service::s3_upload_post(
             &s.s3_client,
             img.contents,
             username,
@@ -144,8 +142,8 @@ async fn upload_images_post(
         .await;
 
         if let Err(_) = res {
-            s3_delete_post(&s.s3_client, username, post.id, counter - 2).await?;
-            s3_delete_post(&s.s3_client, username, post.id, counter - 1).await?;
+            S3Service::s3_delete_post(&s.s3_client, username, post.id, counter - 2).await?;
+            S3Service::s3_delete_post(&s.s3_client, username, post.id, counter - 1).await?;
         }
 
         res?;
@@ -157,7 +155,7 @@ async fn upload_images_post(
         .add_post(post.id)
         .unwrap();
 
-    transaction.commit().await?;
+    tx.commit().await?;
 
     Ok(StatusCode::CREATED)
 }
@@ -167,7 +165,7 @@ async fn download(
     Path((post_type, username, post_id, content_id)): Path<(PostType, String, i64, i64)>,
     State(s): State<AppState>,
 ) -> RouteResult<Body> {
-    let res = s3_download_post(
+    let res = S3Service::s3_download_post(
         &s.s3_client,
         &username,
         post_id,
@@ -234,7 +232,7 @@ async fn upload_workout_post(
     let json_string = serde_json::to_string(&body.workout).unwrap();
     let bytes = Bytes::from(json_string);
 
-    s3_upload_post(
+    S3Service::s3_upload_post(
         &s.s3_client,
         bytes,
         ctx.jwt().username(),
@@ -264,9 +262,10 @@ async fn get_post_by_time(
     State(s): State<AppState>,
     Path(created_at): Path<NaiveDateTime>,
 ) -> RouteResult<Json<Vec<PostCard>>> {
-    // let posts = get_three_older(&s.pool, &created_at).await?;
+    let pool = &mut *s.pool.acquire().await?;
+
     let mut posts = get_ten_unseen_older(&s.pool, &created_at, ctx.jwt().username()).await?;
-    let user = get_user_by_username(ctx.jwt().username(), &s.pool)
+    let user = get_user_by_username(ctx.jwt().username(), pool)
         .await?
         .unwrap();
     // .unwrap_or(Err(RouteError::Unauthorized)?);
@@ -289,13 +288,13 @@ async fn get_post_by_time(
 
     for i in 0..posts.len() {
         let post_id = posts[i].id;
-        let num_likes = get_num_likes(&s.pool, post_id).await? as usize;
+        let num_likes = get_num_likes(pool, post_id).await? as usize;
         let like = LikePost {
             post_id,
             username: ctx.jwt().username().to_string(),
         };
-        let is_liked = is_liked(&s.pool, like.post_id, &user.username).await?;
-        let is_following = is_following(&s.pool, ctx.jwt().username(), &posts[i].username).await?;
+        let is_liked = is_liked(pool, like.post_id, &user.username).await?;
+        let is_following = is_following(pool, ctx.jwt().username(), &posts[i].username).await?;
         let card = PostCard {
             content_model: posts[i].clone(),
             is_liked,
@@ -317,7 +316,7 @@ async fn like_post(
         post_id,
         username: ctx.jwt().username().to_string(),
     };
-    base::insert_returning::<Likes, LikePost>(like, &s.pool).await?;
+    base::insert_returning::<Likes, LikePost>(like, &mut *s.pool.acquire().await?).await?;
     seen(&s.pool, ctx.jwt().username(), post_id).await?;
     Ok(())
 }
@@ -332,7 +331,7 @@ async fn unlike_post(
         post_id.into(),
         LikesIden::Username,
         ctx.jwt().username().into(),
-        &s.pool,
+        &mut *s.pool.acquire().await?,
     )
     .await?;
     Ok(())
@@ -367,7 +366,7 @@ async fn upload_profile_picture(
         .await?;
     }
 
-    s3_upload_profile_picture(
+    S3Service::s3_upload_profile_picture(
         &s.s3_client,
         ctx.jwt().username(),
         upload.image.contents,

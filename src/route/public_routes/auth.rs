@@ -62,7 +62,9 @@ pub async fn sign_up(
     // let hasher = Argon2V01;
     // let (pwd_hash, pwd_salt) = hasher.hash(&body.password)?;
 
-    let user = create_user(&body.username, &body.email, &body.password, &s.pool).await?;
+    let mut tx = s.pool.begin().await?;
+
+    let user = create_user(&body.username, &body.email, &body.password, &mut tx).await?;
     let jwt = JWT::new(user.id, user.username, Vec::new());
     let jwt_str = jwt.encode(JWT_SECRET.as_bytes())?;
     let cookie = Cookie::new(AUTH_TOKEN, jwt_str);
@@ -73,6 +75,8 @@ pub async fn sign_up(
         .expect("err locking")
         .add_user(user.id)
         .expect("err adding user");
+
+    tx.commit().await?;
 
     Ok(StatusCode::CREATED)
 }
@@ -97,9 +101,13 @@ pub async fn log_in(
     body.username = body.username.trim().to_lowercase();
     body.password = body.password.trim().to_string();
 
-    let user = base::get_one_with::<Users, Users>(UsersIden::Username, body.username, &s.pool)
-        .await?
-        .ok_or(RouteError::InvalidAuth)?;
+    let user = base::get_one_with::<Users, Users>(
+        UsersIden::Username,
+        body.username,
+        &mut *s.pool.acquire().await?,
+    )
+    .await?
+    .ok_or(RouteError::InvalidAuth)?;
     verify_user(&user, &body.password)?;
     let jwt = JWT::new(user.id, user.username, Vec::new());
     let jwt_str = jwt.encode(JWT_SECRET.as_bytes())?;
