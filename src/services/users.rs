@@ -11,7 +11,10 @@ use crate::{
         schema::FlexForumDbConnection,
         schemas::user_management::users::{username_or_email_exists, Users, UsersIden},
     },
-    route::error::{RouteError, RouteResult},
+    route::{
+        error::{RouteError, RouteResult},
+        public_routes::auth::SignUpModel,
+    },
 };
 
 #[derive(FromRow, Debug)]
@@ -25,9 +28,7 @@ pub struct CreateUser {
 
 pub trait UsersServiceTrait {
     async fn create_user<'e>(
-        username: &str,
-        email: &str,
-        password: &str,
+        sign_up: &SignUpModel,
         pool: &mut FlexForumDbConnection,
     ) -> RouteResult<Users>;
     async fn verify_user(
@@ -41,23 +42,22 @@ pub struct UsersService;
 
 impl UsersServiceTrait for UsersService {
     async fn create_user<'e>(
-        username: &str,
-        email: &str,
-        password: &str,
+        sign_up: &SignUpModel,
         pool: &mut FlexForumDbConnection,
     ) -> RouteResult<Users> {
-        let taken_str = username_or_email_exists(&username, &email, &mut *pool).await?;
+        let taken_str =
+            username_or_email_exists(&sign_up.username, &sign_up.email, &mut *pool).await?;
         if let Some(taken) = taken_str {
             return Err(RouteError::AlreadyTaken(taken));
         }
 
         let argon2 = Argon2::default();
         let salt = argon2::password_hash::SaltString::generate(&mut OsRng);
-        let hash = argon2.hash_password(password.as_bytes(), &salt)?;
+        let hash = argon2.hash_password(sign_up.password.as_bytes(), &salt)?;
 
         let create_user = CreateUser {
-            email: email.to_string(),
-            username: username.to_string(),
+            email: sign_up.email.to_string(),
+            username: sign_up.username.to_string(),
             pwd_hash: hash.to_string(),
         };
 

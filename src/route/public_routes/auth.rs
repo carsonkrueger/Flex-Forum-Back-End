@@ -57,16 +57,11 @@ pub async fn sign_up(
     body.username = body.username.trim().to_lowercase();
     body.password = body.password.trim().to_string();
 
-    // let hasher = Argon2V01;
-    // let (pwd_hash, pwd_salt) = hasher.hash(&body.password)?;
-
     let mut tx = s.pool.begin().await?;
 
-    let user =
-        UsersService::create_user(&body.username, &body.email, &body.password, &mut tx).await?;
-    let jwt = JWT::new(user.id, user.username, Vec::new());
-    let jwt_str = jwt.encode(JWT_SECRET.as_bytes())?;
-    let cookie = Cookie::new(AUTH_TOKEN, jwt_str);
+    let user = UsersService::create_user(&body, &mut tx).await?;
+    let jwt = JWT::new(&user, Vec::new());
+    let cookie = jwt.into_cookie()?;
     cookies.add(cookie);
 
     s.ndarray_app_state
@@ -105,9 +100,8 @@ pub async fn log_in(
         &mut *s.pool.acquire().await?,
     )
     .await?;
-    let jwt = JWT::new(user.id, user.username, Vec::new());
-    let jwt_str = jwt.encode(JWT_SECRET.as_bytes())?;
-    let cookie = Cookie::new(AUTH_TOKEN, jwt_str);
+    let jwt = JWT::new(&user, Vec::new());
+    let cookie = jwt.into_cookie()?;
 
     // let expires = tower_cookies::cookie::time::OffsetDateTime::now_utc()
     //     + tower_cookies::cookie::time::Duration::minutes(JWT_LIFE_IN_MINUTES);

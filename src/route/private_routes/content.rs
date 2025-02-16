@@ -32,7 +32,10 @@ use crate::{
         error::{RouteError, RouteResult},
         NestedRoute,
     },
-    services::s3::{S3Service, S3ServiceTrait},
+    services::{
+        images::ImagesService,
+        s3::{S3Service, S3ServiceTrait},
+    },
     util::ctx::Ctx,
     AppState,
 };
@@ -77,85 +80,9 @@ async fn upload_images_post(
         validate_content_type(fd, IMAGE_CONTENT_TYPES)?;
     }
 
-    let mut counter = 1;
-    if let Some(_) = upload.image2 {
-        counter += 1;
-    }
-    if let Some(_) = upload.image3 {
-        counter += 1;
-    }
+    let images: &[Option<FieldData<Bytes>>] = &[Some(upload.image1), upload.image2, upload.image3];
 
-    let mut tx = s.pool.begin().await?;
-
-    let create_post = CreatePostModel {
-        username: ctx.jwt().username().to_string(),
-        num_images: counter,
-        description: upload.description,
-        post_type: PostType::Images,
-    };
-    let post = base::insert_returning::<Posts, CreatePostModel>(create_post, &mut *tx).await?;
-    let mut counter = 1;
-    let username = ctx.jwt().username();
-
-    S3Service::s3_upload_post(
-        &s.s3_client,
-        upload.image1.contents.clone(),
-        username,
-        post.id,
-        counter,
-        upload.image1.metadata.content_type.unwrap(), // content type validated abolve
-        PostType::Images,
-    )
-    .await?;
-
-    if let Some(img) = upload.image2 {
-        counter += 1;
-        let res = S3Service::s3_upload_post(
-            &s.s3_client,
-            img.contents.clone(),
-            username,
-            post.id,
-            counter,
-            img.metadata.content_type.unwrap(), // content type validated abolve
-            PostType::Images,
-        )
-        .await;
-
-        if let Err(_) = res {
-            S3Service::s3_delete_post(&s.s3_client, username, post.id, counter - 1).await?;
-        }
-
-        res?;
-    }
-
-    if let Some(img) = upload.image3 {
-        counter += 1;
-        let res = S3Service::s3_upload_post(
-            &s.s3_client,
-            img.contents,
-            username,
-            post.id,
-            counter,
-            img.metadata.content_type.unwrap(), // content type validated above
-            PostType::Images,
-        )
-        .await;
-
-        if let Err(_) = res {
-            S3Service::s3_delete_post(&s.s3_client, username, post.id, counter - 2).await?;
-            S3Service::s3_delete_post(&s.s3_client, username, post.id, counter - 1).await?;
-        }
-
-        res?;
-    }
-
-    s.ndarray_app_state
-        .lock()
-        .unwrap()
-        .add_post(post.id)
-        .unwrap();
-
-    tx.commit().await?;
+    ImagesService::upload_images(ctx.jwt().username(), &images, upload.description, &s).await?;
 
     Ok(StatusCode::CREATED)
 }

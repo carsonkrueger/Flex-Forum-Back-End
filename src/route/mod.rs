@@ -18,8 +18,8 @@ use std::sync::{Arc, Mutex};
 use tower_cookies::CookieManagerLayer;
 
 pub mod error;
-mod private_routes;
-mod public_routes;
+pub mod private_routes;
+pub mod public_routes;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
