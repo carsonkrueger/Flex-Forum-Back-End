@@ -1,4 +1,4 @@
-use crate::middleware::auth_mw::{AUTH_TOKEN, JWT_SECRET};
+use crate::model::base::BaseModel;
 use crate::route::error::{RouteError, RouteResult};
 use crate::route::NestedRoute;
 use crate::services::users::{UsersService, UsersServiceTrait};
@@ -11,7 +11,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde::Deserialize;
 use sqlx::prelude::FromRow;
-use tower_cookies::{Cookie, Cookies};
+use tower_cookies::Cookies;
 use validator::Validate;
 
 pub struct AuthRoute;
@@ -45,7 +45,7 @@ pub struct SignUpModel {
     pub password: String,
 }
 
-pub async fn sign_up(
+async fn sign_up(
     State(s): State<AppState>,
     cookies: Cookies,
     Json(mut body): Json<SignUpModel>,
@@ -59,7 +59,7 @@ pub async fn sign_up(
 
     let mut tx = s.pool.begin().await?;
 
-    let user = UsersService::create_user(&body, &mut tx).await?;
+    let user = UsersService::create_user::<BaseModel>(&body, &mut tx).await?;
     let jwt = JWT::new(&user, Vec::new());
     let cookie = jwt.into_cookie()?;
     cookies.add(cookie);
@@ -85,7 +85,7 @@ pub struct LoginModel {
 }
 
 /// logs user in with username & password
-pub async fn log_in(
+async fn log_in<US: UsersServiceTrait>(
     State(s): State<AppState>,
     cookies: Cookies,
     Json(mut body): Json<LoginModel>,
@@ -94,7 +94,7 @@ pub async fn log_in(
 
     body.username = body.username.trim().to_lowercase();
 
-    let user = UsersService::verify_user(
+    let user = UsersService::verify_user::<BaseModel>(
         &body.username,
         body.password.trim(),
         &mut *s.pool.acquire().await?,

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 
 use crate::model::{
-    base::{self},
+    base::BaseModelTrait,
     error::ModelResult,
     schema::{FlexForumDbConnection, Schema},
 };
@@ -26,16 +26,19 @@ pub struct LikePost {
     pub username: String,
 }
 
-pub async fn get_num_likes(pool: &mut FlexForumDbConnection, post_id: i64) -> ModelResult<i64> {
-    base::count_where::<Likes>(LikesIden::PostId, "=", post_id, pool).await
+pub async fn get_num_likes<BM: BaseModelTrait>(
+    pool: &mut FlexForumDbConnection,
+    post_id: i64,
+) -> ModelResult<i64> {
+    BM::count_where::<Likes>(LikesIden::PostId, "=", post_id, pool).await
 }
 
-pub async fn is_liked(
+pub async fn is_liked<BM: BaseModelTrait>(
     pool: &mut FlexForumDbConnection,
     post_id: i64,
     username: &str,
 ) -> ModelResult<bool> {
-    let res = base::get_one_with_both::<Likes, Likes>(
+    let res = BM::get_one_with_both::<Likes, Likes>(
         LikesIden::PostId,
         post_id,
         LikesIden::Username,

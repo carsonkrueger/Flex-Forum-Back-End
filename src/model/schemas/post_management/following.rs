@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 
 use crate::model::{
-    base::{self},
+    base::BaseModelTrait,
     error::ModelResult,
     schema::{FlexForumDbConnection, Schema},
 };
@@ -19,12 +19,12 @@ pub struct Following {
     pub following: String,
 }
 
-pub async fn is_following(
+pub async fn is_following<BM: BaseModelTrait>(
     pool: &mut FlexForumDbConnection,
     follower: &str,
     following: &str,
 ) -> ModelResult<bool> {
-    let res = base::get_one_with_both::<Following, Following>(
+    let res = BM::get_one_with_both::<Following, Following>(
         FollowingIden::Follower,
         follower,
         FollowingIden::Following,

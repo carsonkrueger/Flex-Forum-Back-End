@@ -5,7 +5,7 @@ use sqlx::prelude::FromRow;
 
 use crate::{
     model::{
-        base,
+        base::{BaseModel, BaseModelTrait},
         schemas::workout_management::exercise_presets::{ExercisePreset, ExercisePresetIden},
     },
     route::{error::RouteResult, AppState, NestedRoute},
@@ -31,8 +31,9 @@ pub struct ReadExercisePresetModel {
 pub async fn get_presets(
     State(s): State<AppState>,
 ) -> RouteResult<Json<Vec<ReadExercisePresetModel>>> {
-    let res =
-        base::get_all::<ExercisePreset, ReadExercisePresetModel>(&mut *s.pool.acquire().await?)
-            .await?;
+    let res = BaseModel::get_all::<ExercisePreset, ReadExercisePresetModel>(
+        &mut *s.pool.acquire().await?,
+    )
+    .await?;
     Ok(Json(res))
 }

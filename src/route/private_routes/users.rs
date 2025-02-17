@@ -1,11 +1,12 @@
 use crate::middleware::auth_mw::AUTH_TOKEN;
-use crate::model::base;
+use crate::model::base::BaseModel;
+use crate::model::base::BaseModelTrait;
 use crate::model::schemas::post_management::following::Following;
 use crate::model::schemas::post_management::following::FollowingIden;
-use crate::model::schemas::user_management::users::list_by_username;
 use crate::model::schemas::user_management::users::ReadUserModel;
 use crate::model::schemas::user_management::users::Users;
 use crate::model::schemas::user_management::users::UsersIden;
+use crate::model::schemas::user_management::users::UsersModelTrait;
 use crate::route::error::RouteResult;
 use crate::route::NestedRoute;
 use crate::util::ctx::Ctx;
@@ -41,7 +42,7 @@ pub async fn get_user(
     Path(username): Path<String>,
     State(s): State<AppState>,
 ) -> RouteResult<Json<Option<ReadUserModel>>> {
-    let read_user = base::get_one_with::<Users, ReadUserModel>(
+    let read_user = BaseModel::get_one_with::<Users, ReadUserModel>(
         UsersIden::Username,
         &username,
         &mut *s.pool.acquire().await?,
@@ -55,7 +56,7 @@ pub async fn list_users(
     Path(username): Path<String>,
     State(s): State<AppState>,
 ) -> RouteResult<Json<Vec<ReadUserModel>>> {
-    let users = list_by_username(
+    let users = Users::list_by_username::<BaseModel>(
         5,
         0,
         &username.to_lowercase(),
@@ -66,7 +67,7 @@ pub async fn list_users(
 }
 
 pub async fn delete_user(ctx: Ctx, cookies: Cookies, State(s): State<AppState>) -> RouteResult<()> {
-    base::delete_one_with::<Users>(
+    BaseModel::delete_one_with::<Users>(
         UsersIden::Username,
         ctx.jwt().username().into(),
         &mut *s.pool.acquire().await?,
@@ -94,7 +95,7 @@ async fn follow_user(
         follower: ctx.jwt().username().to_string(),
         following,
     };
-    base::insert_returning::<Following, FollowingCreateModel>(
+    BaseModel::insert_returning::<Following, FollowingCreateModel>(
         follow,
         &mut *s.pool.acquire().await?,
     )
@@ -107,7 +108,7 @@ async fn unfollow_user(
     State(s): State<AppState>,
     Path(following): Path<String>,
 ) -> RouteResult<()> {
-    base::delete_one_with_both::<Following>(
+    BaseModel::delete_one_with_both::<Following>(
         FollowingIden::Follower,
         ctx.jwt().username().into(),
         FollowingIden::Following,

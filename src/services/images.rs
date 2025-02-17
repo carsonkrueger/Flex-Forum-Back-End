@@ -3,18 +3,27 @@ use axum_typed_multipart::FieldData;
 
 use crate::{
     model::{
-        base,
+        base::BaseModelTrait,
         schemas::post_management::posts::{CreatePostModel, PostType, Posts},
     },
     route::{error::RouteResult, AppState},
 };
 
-use super::s3::{S3Service, S3ServiceTrait};
+use super::s3::S3ServiceTrait;
+
+pub trait ImagesServiceTrait {
+    async fn upload_images<BM: BaseModelTrait, S3: S3ServiceTrait>(
+        username: &str,
+        images: &[Option<FieldData<Bytes>>],
+        description: String,
+        s: &AppState,
+    ) -> RouteResult<()>;
+}
 
 pub struct ImagesService;
 
-impl ImagesService {
-    pub async fn upload_images(
+impl ImagesServiceTrait for ImagesService {
+    async fn upload_images<BM: BaseModelTrait, S3: S3ServiceTrait>(
         username: &str,
         images: &[Option<FieldData<Bytes>>],
         description: String,
@@ -34,11 +43,11 @@ impl ImagesService {
             description,
             post_type: PostType::Images,
         };
-        let post = base::insert_returning::<Posts, CreatePostModel>(create_post, &mut *tx).await?;
+        let post = BM::insert_returning::<Posts, CreatePostModel>(create_post, &mut *tx).await?;
 
         for counter in 0..images.len() {
             if let Some(img) = &images[counter] {
-                let res = S3Service::s3_upload_post(
+                let res = S3::s3_upload_post(
                     &s.s3_client,
                     img.contents.clone(),
                     username,
@@ -50,7 +59,7 @@ impl ImagesService {
                 .await;
 
                 if let Err(_) = res {
-                    S3Service::s3_delete_post(&s.s3_client, username, post.id, counter - 1).await?;
+                    S3::s3_delete_post(&s.s3_client, username, post.id, counter - 1).await?;
                 }
 
                 res?;

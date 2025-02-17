@@ -1,14 +1,11 @@
 use crate::model::error::ModelResult;
 use crate::model::schema::{IntoIteratorIden, IntoSchemaTableRef};
 use chrono::NaiveDateTime;
-use itertools::Itertools;
 use lib_macros::{iterator_def, iterator_iden_def, schema_table_def};
 use sea_query::{enum_def, Expr, PostgresQueryBuilder, Query, Value};
 use sea_query_binder::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, PgPool, Postgres};
-
-use crate::route::AppState;
 
 use crate::model::schema::Schema;
 
@@ -64,13 +61,13 @@ pub struct CreatePostModel {
     pub post_type: PostType,
 }
 
-pub async fn get_three_older(pool: &PgPool, created_at: &NaiveDateTime) -> ModelResult<Vec<Posts>> {
+pub async fn get_ten_older(pool: &PgPool, created_at: &NaiveDateTime) -> ModelResult<Vec<Posts>> {
     let (sql, values) = Query::select()
         .from(Posts::schema_table_ref())
         .columns(Posts::into_iterator_iden())
         .and_where(Expr::col(PostsIden::CreatedAt).lt(*created_at))
         .order_by(PostsIden::CreatedAt, sea_query::Order::Desc)
-        .limit(3)
+        .limit(10)
         .build_sqlx(PostgresQueryBuilder);
     let models = sqlx::query_as_with::<Postgres, _, _>(&sql, values)
         .fetch_all(pool)
@@ -113,25 +110,4 @@ pub async fn get_ten_unseen_older<'q>(
     .fetch_all(pool)
     .await?;
     Ok(rows)
-}
-
-pub fn sort_by_predicted(posts: &mut Vec<Posts>, s: &AppState, num_taken: usize, user_id: i64) {
-    let post_ids = posts.iter().map(|p| p.id).collect::<Vec<_>>();
-    let predictions = s
-        .ndarray_app_state
-        .lock()
-        .expect("err locking")
-        .predict_all(user_id, &post_ids);
-
-    let zipped = posts.iter().zip(predictions.iter()).collect::<Vec<_>>();
-    *posts = zipped
-        .iter()
-        .sorted_by(|a, b| {
-            b.1 .1
-                .partial_cmp(&a.1 .1)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-        .map(|&(x, _)| x.clone())
-        .take(num_taken)
-        .collect::<Vec<_>>();
 }

@@ -2,13 +2,13 @@ use aws_sdk_s3::{
     error::SdkError,
     operation::{
         delete_object::{DeleteObjectError, DeleteObjectOutput},
-        get_object::{GetObjectError, GetObjectOutput},
+        get_object::GetObjectError,
         put_object::{PutObjectError, PutObjectOutput},
     },
     primitives::{ByteStream, SdkBody},
     Client,
 };
-use axum::body::Bytes;
+use axum::body::{Body, Bytes};
 
 use crate::model::schemas::post_management::posts::PostType;
 
@@ -42,7 +42,7 @@ pub trait S3ServiceTrait {
         post_id: i64,
         content_num: usize,
         bucket: PostType,
-    ) -> Result<GetObjectOutput, SdkError<GetObjectError>>;
+    ) -> Result<Body, SdkError<GetObjectError>>;
 
     async fn s3_delete_post(
         s3_client: &Client,
@@ -92,10 +92,16 @@ impl S3ServiceTrait for S3Service {
         post_id: i64,
         content_num: usize,
         bucket: PostType,
-    ) -> Result<GetObjectOutput, SdkError<GetObjectError>> {
+    ) -> Result<Body, SdkError<GetObjectError>> {
         let key = user_post_bucket_key(username, post_id, content_num);
-        let res = s3_client.get_object().bucket(bucket).key(&key).send().await;
-        res
+        let res = s3_client
+            .get_object()
+            .bucket(bucket)
+            .key(&key)
+            .send()
+            .await?;
+        let stream = tokio_util::io::ReaderStream::new(res.body.into_async_read());
+        Ok(Body::from_stream(stream))
     }
 
     async fn s3_delete_post(

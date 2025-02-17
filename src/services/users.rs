@@ -7,9 +7,9 @@ use sqlx::prelude::FromRow;
 
 use crate::{
     model::{
-        base,
+        base::BaseModelTrait,
         schema::FlexForumDbConnection,
-        schemas::user_management::users::{username_or_email_exists, Users, UsersIden},
+        schemas::user_management::users::{Users, UsersIden, UsersModelTrait},
     },
     route::{
         error::{RouteError, RouteResult},
@@ -27,11 +27,11 @@ pub struct CreateUser {
 }
 
 pub trait UsersServiceTrait {
-    async fn create_user<'e>(
+    async fn create_user<BM: BaseModelTrait>(
         sign_up: &SignUpModel,
         pool: &mut FlexForumDbConnection,
     ) -> RouteResult<Users>;
-    async fn verify_user(
+    async fn verify_user<BM: BaseModelTrait>(
         username: &str,
         password: &str,
         pool: &mut FlexForumDbConnection,
@@ -41,12 +41,12 @@ pub trait UsersServiceTrait {
 pub struct UsersService;
 
 impl UsersServiceTrait for UsersService {
-    async fn create_user<'e>(
+    async fn create_user<BM: BaseModelTrait>(
         sign_up: &SignUpModel,
         pool: &mut FlexForumDbConnection,
     ) -> RouteResult<Users> {
         let taken_str =
-            username_or_email_exists(&sign_up.username, &sign_up.email, &mut *pool).await?;
+            Users::username_or_email_exists(&sign_up.username, &sign_up.email, &mut *pool).await?;
         if let Some(taken) = taken_str {
             return Err(RouteError::AlreadyTaken(taken));
         }
@@ -61,16 +61,16 @@ impl UsersServiceTrait for UsersService {
             pwd_hash: hash.to_string(),
         };
 
-        let user = base::insert_returning::<Users, CreateUser>(create_user, pool).await?;
+        let user = BM::insert_returning::<Users, CreateUser>(create_user, pool).await?;
 
         Ok(user)
     }
-    async fn verify_user(
+    async fn verify_user<BM: BaseModelTrait>(
         username: &str,
         password: &str,
         pool: &mut FlexForumDbConnection,
     ) -> RouteResult<Users> {
-        let user = base::get_one_with::<Users, Users>(UsersIden::Username, username, pool)
+        let user = BM::get_one_with::<Users, Users>(UsersIden::Username, username, pool)
             .await?
             .ok_or(RouteError::InvalidAuth)?;
 
